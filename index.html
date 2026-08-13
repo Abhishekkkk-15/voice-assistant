@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice Assistant Test</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-2: #1f2937;
+        --primary: #38bdf8;
+        --primary-2: #0ea5e9;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --success: #34d399;
+        --danger: #f87171;
+        --warning: #fbbf24;
+        --shadow: rgba(15, 23, 42, 0.35);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(180deg, #020817 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 32px auto;
+        padding: 20px;
+      }
+
+      h1 {
+        margin: 0 0 24px;
+        font-size: clamp(2rem, 3vw, 2.8rem);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 22px;
+      }
+
+      .card {
+        background: rgba(17, 24, 39, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 12px 24px var(--shadow);
+      }
+
+      .card h2 {
+        margin-top: 0;
+        margin-bottom: 16px;
+        font-size: 1.2rem;
+      }
+
+      label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+
+      textarea,
+      input[type="text"],
+      input[type="file"] {
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 1rem;
+      }
+
+      textarea {
+        min-height: 130px;
+        resize: vertical;
+      }
+
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      button {
+        border: none;
+        border-radius: 10px;
+        padding: 11px 16px;
+        font-size: 0.98rem;
+        font-weight: bold;
+        cursor: pointer;
+        background: var(--primary);
+        color: #062231;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button.secondary {
+        background: rgba(148, 163, 184, 0.18);
+        color: var(--text);
+      }
+
+      button.danger {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+      }
+
+      button.success {
+        background: rgba(52, 211, 153, 0.18);
+        color: #bbf7d0;
+      }
+
+      .status {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        color: var(--muted);
+        min-height: 48px;
+      }
+
+      .status.error {
+        color: #fecaca;
+        border-color: rgba(248, 113, 113, 0.4);
+      }
+
+      .status.success {
+        color: #bbf7d0;
+        border-color: rgba(52, 211, 153, 0.35);
+      }
+
+      audio {
+        width: 100%;
+        margin-top: 14px;
+        border-radius: 10px;
+        background: #020817;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 640px) {
+        .container {
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Voice Assistant Test Page</h1>
+
+      <div class="grid">
+        <section class="card">
+          <h2>1) Send Prompt to Server</h2>
+          <form id="promptForm">
+            <label for="promptInput">Prompt</label>
+            <textarea id="promptInput" placeholder="Ask the voice assistant something..."></textarea>
+            <div class="button-row">
+              <button type="submit">Send prompt</button>
+              <button type="button" class="secondary" id="fillSampleBtn">Use sample text</button>
+            </div>
+          </form>
+          <div id="promptStatus" class="status">Ready to send a prompt.</div>
+        </section>
+
+        <section class="card">
+          <h2>2) Upload Voice File</h2>
+          <label for="fileInput">Choose an audio file</label>
+          <input id="fileInput" type="file" accept="audio/*" />
+          <div class="button-row">
+            <button type="button" class="secondary" id="playUploadedBtn">Play uploaded audio</button>
+          </div>
+          <audio id="uploadedAudio" controls></audio>
+          <div class="muted" style="margin-top: 10px;">This can be used to preview local audio files or test audio playback.</div>
+        </section>
+
+        <section class="card">
+          <h2>3) Use Microphone</h2>
+          <div class="button-row">
+            <button type="button" id="startMicBtn" class="success">Start microphone</button>
+            <button type="button" id="stopMicBtn" class="danger">Stop recording</button>
+          </div>
+          <div class="button-row">
+            <button type="button" id="sendMicBtn" class="secondary">Transcribe and send to server</button>
+          </div>
+          <audio id="micAudio" controls></audio>
+          <div id="micStatus" class="status">Microphone not active.</div>
+        </section>
+      </div>
+
+      <section class="card" style="margin-top: 22px;">
+        <h2>Server Audio Response</h2>
+        <audio id="serverAudio" controls autoplay></audio>
+      </section>
+    </div>
+
+    <script>
+      const promptForm = document.getElementById('promptForm');
+      const promptInput = document.getElementById('promptInput');
+      const promptStatus = document.getElementById('promptStatus');
+      const serverAudio = document.getElementById('serverAudio');
+      const fileInput = document.getElementById('fileInput');
+      const uploadedAudio = document.getElementById('uploadedAudio');
+      const micAudio = document.getElementById('micAudio');
+      const micStatus = document.getElementById('micStatus');
+
+      const fillSampleBtn = document.getElementById('fillSampleBtn');
+      const startMicBtn = document.getElementById('startMicBtn');
+      const stopMicBtn = document.getElementById('stopMicBtn');
+      const sendMicBtn = document.getElementById('sendMicBtn');
+      const playUploadedBtn = document.getElementById('playUploadedBtn');
+
+      let mediaRecorder = null;
+      let audioChunks = [];
+      let microphoneStream = null;
+      let lastRecordingBlob = null;
+      let recognition = null;
+
+      function setStatus(el, message, type = '') {
+        el.textContent = message;
+        el.classList.remove('error', 'success');
+        if (type) el.classList.add(type);
+      }
+
+      fillSampleBtn.addEventListener('click', () => {
+        promptInput.value = 'Tell me a short greeting in a friendly voice.';
+      });
+
+      promptForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = promptInput.value.trim();
+        if (!text) {
+          setStatus(promptStatus, 'Please enter a prompt first.', 'error');
+          return;
+        }
+
+        try {
+          setStatus(promptStatus, 'Sending prompt to server...', '');
+          const response = await fetch(`http://127.0.0.1:8000/chat?prompt=${encodeURIComponent(text)}`, {
+            method: 'POST',
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const audioBlob = await response.blob();
+          const audioUrl = URL.createObjectURL(audioBlob);
+          serverAudio.src = audioUrl;
+          serverAudio.play();
+          setStatus(promptStatus, 'Server response received and playing.', 'success');
+        } catch (error) {
+          console.error(error);
+          setStatus(promptStatus, `Request failed: ${error.message}`, 'error');
+        }
+      });
+
+      fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const url = URL.createObjectURL(file);
+        uploadedAudio.src = url;
+        uploadedAudio.load();
+        setStatus(promptStatus, `Loaded file: ${file.name}`, 'success');
+      });
+
+      playUploadedBtn.addEventListener('click', () => {
+        if (!uploadedAudio.src) {
+          setStatus(promptStatus, 'Upload an audio file before playing it.', 'error');
+          return;
+        }
+        uploadedAudio.play();
+      });
+
+      async function startMicrophone() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus(micStatus, 'This browser does not support microphone access.', 'error');
+          return;
+        }
+
+        try {
+          microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : '';
+
+          mediaRecorder = new MediaRecorder(microphoneStream, mimeType ? { mimeType } : undefined);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            lastRecordingBlob = blob;
+            const url = URL.createObjectURL(blob);
+            micAudio.src = url;
+            micAudio.load();
+            setStatus(micStatus, 'Recording captured. You can play it or transcribe it.', 'success');
+          };
+
+          mediaRecorder.start();
+          setStatus(micStatus, 'Microphone is live. Press stop when you finish speaking.', 'success');
+        } catch (error) {
+          console.error(error);
+          setStatus(micStatus, `Microphone access failed: ${error.message}`, 'error');
+        }
+      }
+
+      function stopMicrophone() {
+        if (!mediaRecorder) {
+          setStatus(micStatus, 'No active recording to stop.', 'error');
+          return;
+        }
+
+        mediaRecorder.stop();
+        microphoneStream.getTracks().forEach((track) => track.stop());
+        mediaRecorder = null;
+        microphoneStream = null;
+      }
+
+      startMicBtn.addEventListener('click', startMicrophone);
+      stopMicBtn.addEventListener('click', stopMicrophone);
+
+      sendMicBtn.addEventListener('click', async () => {
+        if (!lastRecordingBlob) {
+          setStatus(micStatus, 'Record audio first before sending it.', 'error');
+          return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          setStatus(micStatus, 'Speech recognition is not supported in this browser. Please type your message manually or use a browser like Chrome/Edge.', 'error');
+          return;
+        }
+
+        setStatus(micStatus, 'Listening to the recording and converting to text...', '');
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript.trim();
+          if (!transcript) {
+            setStatus(micStatus, 'No speech was detected. Try again.', 'error');
+            return;
+          }
+
+          promptInput.value = transcript;
+          setStatus(micStatus, `Heard: ${transcript}`, 'success');
+          promptForm.requestSubmit();
+        };
+
+        recognition.onerror = (event) => {
+          setStatus(micStatus, `Speech recognition error: ${event.error}`, 'error');
+        };
+
+        recognition.onend = () => {
+          recognition = null;
+        };
+
+        const audioUrl = URL.createObjectURL(lastRecordingBlob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+
+        recognition.start();
+      });
+    </script>
+  </body>
+</html>
