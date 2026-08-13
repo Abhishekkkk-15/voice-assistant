@@ -338,6 +338,8 @@
 
       sendUploadBtn.addEventListener('click', sendSelectedUploadFile);
 
+      let activeMimeType = 'audio/webm';
+
       async function startMicrophone() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           setStatus(micStatus, 'This browser does not support microphone access.', 'error');
@@ -347,11 +349,16 @@
         try {
           microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          activeMimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
             ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/webm')
+            ? 'audio/webm'
+            : MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
             : '';
 
-          mediaRecorder = new MediaRecorder(microphoneStream, mimeType ? { mimeType } : undefined);
+          mediaRecorder = new MediaRecorder(microphoneStream, activeMimeType ? { mimeType: activeMimeType } : undefined);
+          activeMimeType = mediaRecorder.mimeType || activeMimeType || 'audio/webm';
           audioChunks = [];
 
           mediaRecorder.ondataavailable = (event) => {
@@ -359,12 +366,13 @@
           };
 
           mediaRecorder.onstop = () => {
-            const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            const blob = new Blob(audioChunks, { type: activeMimeType });
             lastRecordingBlob = blob;
             const url = URL.createObjectURL(blob);
             micAudio.src = url;
             micAudio.load();
             setStatus(micStatus, 'Recording captured. You can play it back or send it to the server.', 'success');
+            mediaRecorder = null;
           };
 
           mediaRecorder.start();
@@ -381,10 +389,13 @@
           return;
         }
 
-        mediaRecorder.stop();
-        microphoneStream.getTracks().forEach((track) => track.stop());
-        mediaRecorder = null;
-        microphoneStream = null;
+        if (mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+        }
+        if (microphoneStream) {
+          microphoneStream.getTracks().forEach((track) => track.stop());
+          microphoneStream = null;
+        }
       }
 
       async function sendMicrophoneRecordingToServer() {
