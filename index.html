@@ -183,6 +183,7 @@
           <input id="fileInput" type="file" accept="audio/*" />
           <div class="button-row">
             <button type="button" class="secondary" id="playUploadedBtn">Play uploaded audio</button>
+            <button type="button" id="sendUploadBtn" class="success">Send uploaded audio</button>
           </div>
           <audio id="uploadedAudio" controls></audio>
           <div class="muted" style="margin-top: 10px;">This can be used to preview local audio files or test audio playback.</div>
@@ -209,6 +210,8 @@
     </div>
 
     <script>
+      const API_BASE = 'http://127.0.0.1:8000';
+
       const promptForm = document.getElementById('promptForm');
       const promptInput = document.getElementById('promptInput');
       const promptStatus = document.getElementById('promptStatus');
@@ -223,17 +226,41 @@
       const stopMicBtn = document.getElementById('stopMicBtn');
       const sendMicBtn = document.getElementById('sendMicBtn');
       const playUploadedBtn = document.getElementById('playUploadedBtn');
+      const sendUploadBtn = document.getElementById('sendUploadBtn');
 
       let mediaRecorder = null;
       let audioChunks = [];
       let microphoneStream = null;
       let lastRecordingBlob = null;
-      let recognition = null;
 
       function setStatus(el, message, type = '') {
         el.textContent = message;
         el.classList.remove('error', 'success');
         if (type) el.classList.add(type);
+      }
+
+      function playServerAudioFromBlob(blob) {
+        const audioUrl = URL.createObjectURL(blob);
+        serverAudio.src = audioUrl;
+        serverAudio.play();
+      }
+
+      async function handleServerAudioResponse(response, contextLabel = 'Response') {
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`${contextLabel} failed: ${response.status} ${response.statusText} ${errorText}`);
+        }
+
+        const audioBlob = await response.blob();
+        const transcript = response.headers.get('X-User-Transcript');
+
+        if (transcript) {
+          promptInput.value = transcript;
+          setStatus(promptStatus, `Transcript: ${transcript}`, 'success');
+        }
+
+        playServerAudioFromBlob(audioBlob);
+        setStatus(promptStatus, `${contextLabel} received and playing.`, 'success');
       }
 
       fillSampleBtn.addEventListener('click', () => {
@@ -250,33 +277,31 @@
 
         try {
           setStatus(promptStatus, 'Sending prompt to server...', '');
-          const response = await fetch(`http://127.0.0.1:8000/chat?prompt=${encodeURIComponent(text)}`, {
+          const response = await fetch(`${API_BASE}/chat?prompt=${encodeURIComponent(text)}`, {
             method: 'POST',
           });
 
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          const audioBlob = await response.blob();
-          const audioUrl = URL.createObjectURL(audioBlob);
-          serverAudio.src = audioUrl;
-          serverAudio.play();
-          setStatus(promptStatus, 'Server response received and playing.', 'success');
+          await handleServerAudioResponse(response, 'Text prompt');
         } catch (error) {
           console.error(error);
-          setStatus(promptStatus, `Request failed: ${error.message}`, 'error');
+          setStatus(promptStatus, `Request failed: ${error.message}. Make sure the API is running on ${API_BASE}.`, 'error');
         }
       });
 
+      let selectedUploadFile = null;
+
       fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
-        if (!file) return;
+        if (!file) {
+          selectedUploadFile = null;
+          return;
+        }
 
+        selectedUploadFile = file;
         const url = URL.createObjectURL(file);
         uploadedAudio.src = url;
         uploadedAudio.load();
-        setStatus(promptStatus, `Loaded file: ${file.name}`, 'success');
+        setStatus(promptStatus, `Loaded file: ${file.name}. Click "Send uploaded audio" to send it.`, 'success');
       });
 
       playUploadedBtn.addEventListener('click', () => {
@@ -286,6 +311,32 @@
         }
         uploadedAudio.play();
       });
+
+      async function sendSelectedUploadFile() {
+        if (!selectedUploadFile) {
+          setStatus(promptStatus, 'Choose an audio file before sending it.', 'error');
+          return;
+        }
+
+        try {
+          setStatus(promptStatus, 'Sending uploaded voice file...', '');
+
+          const formData = new FormData();
+          formData.append('file', selectedUploadFile, selectedUploadFile.name);
+
+          const response = await fetch(`${API_BASE}/auto-chat`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          await handleServerAudioResponse(response, 'Uploaded voice file');
+        } catch (error) {
+          console.error(error);
+          setStatus(promptStatus, `Upload failed: ${error.message}`, 'error');
+        }
+      }
+
+      sendUploadBtn.addEventListener('click', sendSelectedUploadFile);
 
       async function startMicrophone() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -313,7 +364,7 @@
             const url = URL.createObjectURL(blob);
             micAudio.src = url;
             micAudio.load();
-            setStatus(micStatus, 'Recording captured. You can play it or transcribe it.', 'success');
+            setStatus(micStatus, 'Recording captured. You can play it back or send it to the server.', 'success');
           };
 
           mediaRecorder.start();
@@ -336,54 +387,34 @@
         microphoneStream = null;
       }
 
-      startMicBtn.addEventListener('click', startMicrophone);
-      stopMicBtn.addEventListener('click', stopMicrophone);
-
-      sendMicBtn.addEventListener('click', async () => {
+      async function sendMicrophoneRecordingToServer() {
         if (!lastRecordingBlob) {
           setStatus(micStatus, 'Record audio first before sending it.', 'error');
           return;
         }
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-          setStatus(micStatus, 'Speech recognition is not supported in this browser. Please type your message manually or use a browser like Chrome/Edge.', 'error');
-          return;
+        try {
+          setStatus(micStatus, 'Sending microphone recording to server...', '');
+
+          const formData = new FormData();
+          formData.append('file', lastRecordingBlob, 'microphone-recording.webm');
+
+          const response = await fetch(`${API_BASE}/auto-chat`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          await handleServerAudioResponse(response, 'Microphone recording');
+          setStatus(micStatus, 'Recorded voice sent successfully.', 'success');
+        } catch (error) {
+          console.error(error);
+          setStatus(micStatus, `Microphone upload failed: ${error.message}`, 'error');
         }
+      }
 
-        setStatus(micStatus, 'Listening to the recording and converting to text...', '');
-
-        recognition = new SpeechRecognition();
-        recognition.lang = 'en-US';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        recognition.onresult = (event) => {
-          const transcript = event.results[0][0].transcript.trim();
-          if (!transcript) {
-            setStatus(micStatus, 'No speech was detected. Try again.', 'error');
-            return;
-          }
-
-          promptInput.value = transcript;
-          setStatus(micStatus, `Heard: ${transcript}`, 'success');
-          promptForm.requestSubmit();
-        };
-
-        recognition.onerror = (event) => {
-          setStatus(micStatus, `Speech recognition error: ${event.error}`, 'error');
-        };
-
-        recognition.onend = () => {
-          recognition = null;
-        };
-
-        const audioUrl = URL.createObjectURL(lastRecordingBlob);
-        const audio = new Audio(audioUrl);
-        audio.play();
-
-        recognition.start();
-      });
+      startMicBtn.addEventListener('click', startMicrophone);
+      stopMicBtn.addEventListener('click', stopMicrophone);
+      sendMicBtn.addEventListener('click', sendMicrophoneRecordingToServer);
     </script>
   </body>
 </html>
