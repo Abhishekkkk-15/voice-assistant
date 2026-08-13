@@ -3,6 +3,15 @@ revision = 3
 requires-python = ">=3.14"
 
 [[package]]
+name = "annotated-doc"
+version = "0.0.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz", hash = "sha256:c7e58ce09192557605d8bbd92836d7e1d520ac9580096042c0bfd197efacf1bb", size = 10758, upload-time = "2026-07-28T13:50:58.129Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl", hash = "sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101", size = 5302, upload-time = "2026-07-28T13:50:57.239Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -33,6 +42,27 @@ wheels = [
 ]
 
 [[package]]
+name = "click"
+version = "8.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz", hash = "sha256:9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6", size = 338000, upload-time = "2026-06-24T17:45:15.148Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/e2/79c688af8b210d232694e31e59da9f6ec747bae31c3f5946e4e9b98860d5/click-8.4.2-py3-none-any.whl", hash = "sha256:e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76", size = 119243, upload-time = "2026-06-24T17:45:13.73Z" },
+]
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
+]
+
+[[package]]
 name = "dotenv"
 version = "0.9.9"
 source = { registry = "https://pypi.org/simple" }
@@ -50,6 +80,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/1c/15/273a4baf8248d6d76220723c3caf039d283774b31a7c46ba686120145b76/eval_type_backport-0.4.0.tar.gz", hash = "sha256:8397d25e6524c2e67b9576bb0636be27dea2192017711220c534ec2de921e9b0", size = 10260, upload-time = "2026-06-02T13:22:06.059Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/50/a7/bb99bf5e6f78736ddb53480f2c3ff3702ffe2196a7c5e1661c03081d398e/eval_type_backport-0.4.0-py3-none-any.whl", hash = "sha256:ad5e2a8db71b6696a56eafb938b0f5a337d3217f256b8e158b469422b4772b20", size = 6432, upload-time = "2026-06-02T13:22:04.827Z" },
+]
+
+[[package]]
+name = "fastapi"
+version = "0.141.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz", hash = "sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1", size = 425799, upload-time = "2026-07-29T17:18:05.568Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/03/10388a42375ee7e4ac9b94eb2c5c569c8b5795e377e701c9ac3ad63de890/fastapi-0.141.1-py3-none-any.whl", hash = "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3", size = 131954, upload-time = "2026-07-29T17:18:04.364Z" },
 ]
 
 [[package]]
@@ -238,6 +284,18 @@ wheels = [
 ]
 
 [[package]]
+name = "starlette"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b5/b4/205b0d5241d934e8add0c38aa924c4f9fb7330834ff11e5444db964ec3f9/starlette-1.6.0.tar.gz", hash = "sha256:d4e3ac5e546444960c710297a3c9fc3f7ebae1b7e963f3d36173b49da535be9b", size = 2716969, upload-time = "2026-08-08T18:27:57.512Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/cb/6a6a47d5b464bd08695d254f3da6e7986cc70c9fa5d778eda57538edfe56/starlette-1.6.0-py3-none-any.whl", hash = "sha256:a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c", size = 75969, upload-time = "2026-08-08T18:27:56.196Z" },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -259,16 +317,53 @@ wheels = [
 ]
 
 [[package]]
+name = "unicorn"
+version = "2.1.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/1b/b4248aa8422e86de690cf8e85cf8feae4c33405a097d1ebe71570bdaa6f5/unicorn-2.1.4.tar.gz", hash = "sha256:00567a70e323f749b419cd86bee4f9115beab7ebba32194581c090cbb7c59cff", size = 2900334, upload-time = "2025-09-09T17:10:48.026Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/a7/92b47771e2107a201632a199cec91e8a81ee8a071ca6b7e7d600d8c61ac9/unicorn-2.1.4-cp37-abi3-macosx_10_9_x86_64.whl", hash = "sha256:2a6f738fab5fabffa56af1e7bbf16ea1e91466c342f8dc64f125bd70f36c6b80", size = 12958220, upload-time = "2025-09-09T17:10:04.86Z" },
+    { url = "https://files.pythonhosted.org/packages/6c/ae/4943c6f8524d729ec7d5e69df6407ea05d710fe77471d91cecf3fc64eb57/unicorn-2.1.4-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:d6c93e0f60328d8f4a1792af3f834137a28050fcc2305f2ec01efe8558a9844e", size = 12142730, upload-time = "2025-09-09T17:10:07.48Z" },
+    { url = "https://files.pythonhosted.org/packages/33/9f/32d41eb942221bcf4417cdc65537fc8b3bbbd6079d6c161e621f1dd4e94a/unicorn-2.1.4-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bd1fb0c9af5f57e356d8a96928b4fe045b2e18f308ef23b481d5f970008aa722", size = 15372569, upload-time = "2025-09-09T17:10:09.765Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/7f/83161916dedff22ddb187bd2751150a1bc53c88b7c1a8d6fa1cc9e144c64/unicorn-2.1.4-cp37-abi3-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8f4e63b76ac4faa7cd32a4c436e96eabc24b91d52e73bde7699ec886bddf9277", size = 19842875, upload-time = "2025-09-09T17:10:11.795Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/df/ded5e3684c2d7600b30cc8a7530277b8cb36644a1a9d34cade7ebb45604c/unicorn-2.1.4-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9d6e6dea140560de4ebd8446661f7ef84a357d428c14a3ef09dacd306ec8c239", size = 16436886, upload-time = "2025-09-09T17:10:14.079Z" },
+    { url = "https://files.pythonhosted.org/packages/70/38/ba5a051c844026e59ab6e0017db8cec77dbe20ab5f1d6edae1ce9d885b06/unicorn-2.1.4-cp37-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:01d744ba01c5cc68f1d7afe3d183f1868720fd440ec4eaedc4d1d5d9bf54b84c", size = 16089431, upload-time = "2025-09-09T17:10:16.557Z" },
+    { url = "https://files.pythonhosted.org/packages/35/07/0b2fb9d2a462066aa24b7d18b463300df79cc4eaa471379f8af7d216261c/unicorn-2.1.4-cp37-abi3-musllinux_1_2_i686.whl", hash = "sha256:ce5c3bfd05f2a5749a0d8a960e1dfc26519a2d09377dc01cfa1378b936a953f8", size = 20531342, upload-time = "2025-09-09T17:10:19.008Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/4b/4628ccb20eb3ad1af400de8181d1f4e5c1a3fc2affa1b3410c1b2d71af36/unicorn-2.1.4-cp37-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:d348a90ee90219d141cb115ef8ed7e3fd1af42afaee105f7580761d775b25e32", size = 16925029, upload-time = "2025-09-09T17:10:21.089Z" },
+    { url = "https://files.pythonhosted.org/packages/08/23/6ae96f8efa8ede707cc67d18d76a08de498bd818483cf8211baf855eabb2/unicorn-2.1.4-cp37-abi3-win32.whl", hash = "sha256:9be89e69be5e2631299f39a7fb8e47b8d3bfaa70ae746e9c4c5f9476a2df9778", size = 11798091, upload-time = "2025-09-09T17:10:23.477Z" },
+    { url = "https://files.pythonhosted.org/packages/70/3d/de7be9bd1addabe6d8a1369381f8a080400c349850e978689c5e18287957/unicorn-2.1.4-cp37-abi3-win_amd64.whl", hash = "sha256:d7107500c64ce5c168fbff6bef9485b5db1350050036f4cea568650cf8bdbdf5", size = 15943079, upload-time = "2025-09-09T17:10:25.265Z" },
+]
+
+[[package]]
+name = "uvicorn"
+version = "0.52.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "h11" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/53/be79eff13cc289570b4c6875fa4641a91a1dc51ece7f6213f364b0a58c4c/uvicorn-0.52.2.tar.gz", hash = "sha256:4294500b9c8f7a3ef3e975d9e4be08c3eb76441af449a9e6e10146c6a182ffec", size = 100685, upload-time = "2026-08-13T07:03:57.377Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/08/0d834cf3e61e476c9f422e856a9e37d12d708d7ada942a2774b1f42aee6c/uvicorn-0.52.2-py3-none-any.whl", hash = "sha256:0b916d247cf5500b320638ea11abf0fed7f348e8e1c7fde53a0e6b6319803512", size = 79912, upload-time = "2026-08-13T07:03:55.658Z" },
+]
+
+[[package]]
 name = "voice-assistant"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "dotenv" },
+    { name = "fastapi" },
     { name = "mistralai" },
+    { name = "unicorn" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "fastapi", specifier = ">=0.141.1" },
     { name = "mistralai", specifier = ">=2.9.2" },
+    { name = "unicorn", specifier = ">=2.1.4" },
+    { name = "uvicorn", specifier = ">=0.52.2" },
 ]

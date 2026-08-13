@@ -1,6 +1,5 @@
 import os
-from mistralai.client import Mistral, OptionalNullable
-from mistralai.client import Models
+from mistralai.client import Mistral
 import base64
 from dotenv import load_dotenv
 from pathlib import Path
