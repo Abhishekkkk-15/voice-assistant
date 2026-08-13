@@ -1,10 +1,12 @@
 import base64
 import io
+import mimetypes
 import os
 from pathlib import Path
 from typing import BinaryIO
 from dotenv import load_dotenv
 from mistralai.client import Mistral
+from mistralai.client.models.file import File
 
 load_dotenv()
 
@@ -20,30 +22,43 @@ class VoiceAssistant:
 
     def speech_to_text(
         self, audio_input: str | Path | bytes | BinaryIO, file_name: str = "audio.mp3"
-        ) -> str:
-        file_to_send: tuple[str, BinaryIO | bytes] | tuple[str, io.BytesIO, str]
-    
+    ) -> str:
+        file_bytes: bytes
+        name: str = file_name
+
         if isinstance(audio_input, (str, Path)):
             file_path = Path(audio_input)
             if not file_path.exists():
                 raise FileNotFoundError(f"Audio file not found: {file_path}")
-            with open(file_path, "rb") as f:
-                file_to_send = (file_path.name, io.BytesIO(f.read()), "audio/mpeg")
+            file_bytes = file_path.read_bytes()
+            name = file_path.name
         elif isinstance(audio_input, bytes):
-            file_to_send = (file_name, io.BytesIO(audio_input), "audio/mpeg")
+            file_bytes = audio_input
         elif hasattr(audio_input, "read"):
-            file_to_send = (file_name, audio_input, "audio/mpeg")
+            content = audio_input.read()
+            if isinstance(content, str):
+                file_bytes = content.encode("utf-8")
+            else:
+                file_bytes = content
         else:
             raise TypeError("Invalid audio input type. Expected str, Path, bytes, or file stream.")
-    
+
+        content_type, _ = mimetypes.guess_type(name)
+        if not content_type:
+            content_type = "audio/mpeg"
+
         response = self.client.audio.transcriptions.complete(
-            model="voxtral-mini-transcribe-2602",
-            file=file_to_send,
+            model="voxtral-mini-latest",
+            file=File(
+                file_name=name,
+                content=file_bytes,
+                content_type=content_type,
+            ),
         )
-    
-        if not response or not response.text:
+
+        if not response or response.text is None:
             raise RuntimeError("Failed to transcribe audio or received empty result.")
-    
+
         return response.text
 
     def text_to_speech(

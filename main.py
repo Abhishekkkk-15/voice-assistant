@@ -1,9 +1,9 @@
 from voice_assistant import VoiceAssistant
-from fastapi import FastAPI,Response
-from fastapi import FastAPI, Response, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Response, UploadFile, File, HTTPException
 from pathlib import Path
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
 origins = [
     "http://localhost:3000",    
@@ -45,10 +45,11 @@ async def chat_completion(prompt: str):
 async def audio_chat_completion(file:UploadFile = File(...)):
     try:
         audio_stream = await file.read()
-        print(audio_stream)
-        user_query = vs.speech_to_text(audio_stream,file_name=file.filename or "input.mp3")
+        user_query = vs.speech_to_text(audio_stream, file_name=file.filename or "input.mp3")
+        if not user_query.strip():
+            user_query = "Hello, I sent an audio recording."
         llm_output = vs.ask_llm(user_query)
-        audio_bytes = vs.text_to_speech(llm_output,output_filename=None)
+        audio_bytes = vs.text_to_speech(llm_output, output_filename=None)
         return Response(
             content=audio_bytes,
             media_type="audio/mpeg",
@@ -58,7 +59,7 @@ async def audio_chat_completion(file:UploadFile = File(...)):
             }
         )
     except Exception as e:   
-        raise HTTPException(status_code=500,detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
