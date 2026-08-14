@@ -1,5 +1,4 @@
 import base64
-import io
 import mimetypes
 import os
 from pathlib import Path
@@ -7,6 +6,7 @@ from typing import BinaryIO
 from dotenv import load_dotenv
 from mistralai.client import Mistral
 from mistralai.client.models.file import File
+from prompt import load_prompt_bundle
 
 load_dotenv()
 
@@ -19,6 +19,7 @@ class VoiceAssistant:
         if not api_key:
             raise ValueError("LLM API key is required")
         self.client = Mistral(api_key=api_key)
+        self.prompts = load_prompt_bundle()
 
     def speech_to_text(
         self, audio_input: str | Path | bytes | BinaryIO, file_name: str = "audio.mp3"
@@ -93,10 +94,7 @@ class VoiceAssistant:
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "You are a helpful voice assistant. Keep answers brief, conversational, "
-                        "and avoid using markdown symbols like stars or hashes since your text will be spoken aloud."
-                    ),
+                    "content": self.prompts.combined,
                 },
                 {"role": "user", "content": user_query},
             ],
