@@ -29,4 +29,4 @@ Optional inputs:
 
 If you run the script without any URL flags, it will also open the interactive prompts automatically.
 
-If `LLM_KEY` is not available, the script still falls back to a local markdown generator.
+
