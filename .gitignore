@@ -12,3 +12,7 @@ wheels/
 ouput.mp3
 output/
 input/
+
+# Added by cargo
+
+/target

@@ -1,0 +1,11 @@
+[package]
+name = "voice-assistant"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = "4.15.0"
+derive_more = { version = "2.1.1", features = ["display"] }
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+actix-ws = "0.3"
