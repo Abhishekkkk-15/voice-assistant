@@ -1,14 +1,114 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, get};
+mod utlis;
+mod model;
 
-#[get("/")]
-async fn hellO() -> impl Responder {
-    HttpResponse::Ok().body("Hello from actix")
+
+use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, Responder, get, web::{self, Data}};
+use actix_ws::{Message, MessageStream, Session};
+use futures_util::StreamExt;
+
+use tokio::sync::broadcast;
+use utlis::{session::{WSSession}};
+
+use std::{collections::HashMap, sync::{ Mutex, mpsc::Sender}};
+use std::sync::Arc;
+use serde_json;
+
+use crate::model::message::ClientMessage;
+
+async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Data<WSSession>){
+ 
+    let (room_tx, mut my_rx) = {
+    let mut store_guard = data.store.lock().unwrap();
+    let tx = store_guard
+        .entry("00".to_string())
+        .or_insert_with(|| broadcast::channel::<String>(20).0)
+        .clone(); 
+
+    let rx = tx.subscribe();
+    (tx, rx)
+    }; 
+
+ loop {
+        tokio::select! {
+            maybe_msg = msg_stream.recv() => {
+                match maybe_msg {
+                    Some(Ok(msg)) => match msg {
+                        Message::Text(text) => {
+                            match serde_json::from_str::<ClientMessage>(&text) {
+                                Ok(parsed) => {
+                                    println!("Received JSON: {:?}", parsed);
+
+                                    let _ = room_tx.send(parsed.content);
+
+                                    let _ = session.text("{\"status\":\"received\"}").await;
+                                }
+                                Err(err) => {
+                                    eprintln!("Invalid JSON: {err}");
+                                    let _ = session.text(format!("{{\"error\":\"{err}\"}}")).await;
+                                }
+                            }
+                        }
+                        Message::Binary(bin) => {
+                            if let Ok(parsed) = serde_json::from_slice::<ClientMessage>(&bin) {
+                                println!("Parsed binary JSON: {:?}", parsed);
+                            }
+                        }
+                        Message::Ping(bytes) => {
+                            if session.pong(&bytes).await.is_err() {
+                                break;
+                            }
+                        }
+                        Message::Close(reason) => {
+                            let _ = session.close(reason).await;
+                            break;
+                        }
+                        _ => (),
+                    },
+                    _ => break,
+                }
+            }
+
+            broadcast_msg = my_rx.recv() => {
+                match broadcast_msg {
+                    Ok(msg) => {
+                        if session.text(msg).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(n)) => {
+                        eprintln!("Client lagged behind by {n} messages");
+                    }
+                    Err(broadcast::error::RecvError::Closed) => {
+                        break;
+                    }
+                }
+            }
+        }
+    }    
 }
+
+#[get("/ws")]
+async fn ws_handler(req: HttpRequest, stream: web::Payload, data:Data<WSSession>) -> Result<HttpResponse, Error> {
+    
+    let (response,  session, msg_stream) = actix_ws::handle(&req, stream)?;
+    println!("Got here");
+    actix_web::rt::spawn(async move {
+        room_handler(session, msg_stream, data).await;
+    });
+
+    Ok(response)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Server runing at http://localhost:3000");
-    HttpServer::new(|| App::new().service(hellO))
-        .bind(("127.0.0.1", 3000))?
+    println!("WebSocket server running on 127.0.0.1:8080/ws");
+    let session :Data<WSSession> =web::Data::new( WSSession{
+        store:  Mutex::new(HashMap::new())
+    });
+    HttpServer::new(move || App::new()
+    .app_data(session.clone())
+    .service(ws_handler))
+        .bind(("127.0.0.1", 8080))?
         .run()
         .await
 }
