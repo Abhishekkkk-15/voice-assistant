@@ -13,14 +13,14 @@ use std::{collections::HashMap, sync::{ Mutex, mpsc::Sender}};
 use std::sync::Arc;
 use serde_json;
 
-use crate::model::message::ClientMessage;
+use crate::model::message::{ClientMessage, WsQuery};
 
-async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Data<WSSession>){
+async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Data<WSSession>,query:WsQuery){
  
     let (room_tx, mut my_rx) = {
     let mut store_guard = data.store.lock().unwrap();
     let tx = store_guard
-        .entry("00".to_string())
+        .entry(query.room)
         .or_insert_with(|| broadcast::channel::<String>(20).0)
         .clone(); 
 
@@ -88,12 +88,14 @@ async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Da
 }
 
 #[get("/ws")]
-async fn ws_handler(req: HttpRequest, stream: web::Payload, data:Data<WSSession>) -> Result<HttpResponse, Error> {
+async fn ws_handler(req: HttpRequest, stream: web::Payload, data:Data<WSSession>,query:web::Query<WsQuery>) -> Result<HttpResponse, Error> {
     
     let (response,  session, msg_stream) = actix_ws::handle(&req, stream)?;
     println!("Got here");
+    let WsQuery { room, user_id } = query.into_inner();
+    let ws_query = WsQuery { room, user_id };
     actix_web::rt::spawn(async move {
-        room_handler(session, msg_stream, data).await;
+        room_handler(session, msg_stream, data,ws_query).await;
     });
 
     Ok(response)
