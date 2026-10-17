@@ -413,91 +413,147 @@
     const DOT_SPACING = 3.6;
     const DOT_RADIUS = 1.1;
 
-    let isAudioPlaying = false;
+    // Persistent Audio & Web Audio elements to ensure the analyser stays connected
     let audioCtx = null;
     let analyser = null;
     let freqData = null;
     let animFrame = null;
+    let persistentAudio = null;
+    let audioSourceNode = null;
+
+    function ensureAudioContext() {
+        if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 128; // 64 frequency bins, perfect resolution for vocal range
+            analyser.smoothingTimeConstant = 0.65; // Responsive and snappy
+            freqData = new Uint8Array(analyser.frequencyBinCount);
+
+            persistentAudio = new Audio();
+            audioSourceNode = audioCtx.createMediaElementSource(persistentAudio);
+            audioSourceNode.connect(analyser);
+            analyser.connect(audioCtx.destination);
+
+            persistentAudio.onended = () => {
+                isAudioPlaying = false;
+                subtitle.innerText = 'Listening...';
+            };
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    // Universal Rounded Pill Path (compatible with every browser, never crashes)
+    function drawPill(context, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        context.beginPath();
+        context.moveTo(x + r, y);
+        context.lineTo(x + width - r, y);
+        context.arcTo(x + width, y, x + width, y + r, r);
+        context.lineTo(x + width, y + height - r);
+        context.arcTo(x + width, y + height, x + width - r, y + height, r);
+        context.lineTo(x + r, y + height);
+        context.arcTo(x, y + height, x, y + height - r, r);
+        context.lineTo(x, y + r);
+        context.arcTo(x, y, x + r, y, r);
+        context.closePath();
+    }
 
     function drawVisualizer(time) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        try {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const totalWidth = (BARS.length * BAR_WIDTH) + ((BARS.length - 1) * BAR_GAP);
-        const startX = (canvas.width - totalWidth) / 2;
-        const centerY = canvas.height / 2;
+            const totalWidth = (BARS.length * BAR_WIDTH) + ((BARS.length - 1) * BAR_GAP);
+            const startX = (canvas.width - totalWidth) / 2;
+            const centerY = canvas.height / 2;
 
-        // If audio is playing with Web Audio analyser, map frequencies to heights
-        if (isAudioPlaying && analyser && freqData) {
-            analyser.getByteFrequencyData(freqData);
-            // Map 7 frequency bins to the 7 bars
-            const binStep = Math.floor(freqData.length / 10);
-            for (let i = 0; i < BARS.length; i++) {
-                const binIndex = 1 + i * binStep;
-                const value = freqData[binIndex] || 0;
-                const energy = value / 255;
-                BARS[i].targetH = Math.max(30, BARS[i].baseH * 0.4 + (energy * 180));
-            }
-        } else if (isAudioPlaying) {
-            // Organic wave animation while playing before analyser takes over
-            for (let i = 0; i < BARS.length; i++) {
-                const wave = Math.sin((time * 0.007) + (i * 0.85));
-                BARS[i].targetH = BARS[i].baseH + (wave * 45);
-            }
-        } else {
-            // Idle breathing state
-            for (let i = 0; i < BARS.length; i++) {
-                const wave = Math.sin((time * 0.0025) + (i * 0.6));
-                BARS[i].targetH = Math.max(26, BARS[i].baseH * 0.35 + (wave * 6));
-            }
-        }
+            if (isAudioPlaying && analyser && freqData) {
+                analyser.getByteFrequencyData(freqData);
 
-        // Smooth height interpolation (spring-like ease)
-        for (let i = 0; i < BARS.length; i++) {
-            BARS[i].curH += (BARS[i].targetH - BARS[i].curH) * 0.18;
-        }
+                // Compute speech presence across vocal spectrum
+                let speechSum = 0;
+                for (let k = 1; k <= 16; k++) {
+                    speechSum += (freqData[k] || 0);
+                }
+                const speechPower = speechSum / (16 * 255); // 0.0 to 1.0
 
-        // Draw each glowing pill with LED dot matrix pattern
-        for (let i = 0; i < BARS.length; i++) {
-            const bar = BARS[i];
-            const x = startX + i * (BAR_WIDTH + BAR_GAP);
-            const h = Math.max(BAR_WIDTH, bar.curH);
-            const y = centerY - (h / 2);
+                // 7 frequency bins tuned to vocal range
+                const voiceBins = [1, 2, 3, 4, 6, 8, 10];
 
-            ctx.save();
+                for (let i = 0; i < BARS.length; i++) {
+                    const binVal = freqData[voiceBins[i]] || 0;
+                    const binEnergy = binVal / 255;
+                    const combinedEnergy = (binEnergy * 0.6) + (speechPower * 0.4);
 
-            // 1. Outer Glow
-            ctx.shadowColor = bar.glow;
-            ctx.shadowBlur = isAudioPlaying ? 22 : 12;
-
-            // 2. Pill Path for clipping and background
-            ctx.beginPath();
-            ctx.roundRect(x, y, BAR_WIDTH, h, PILL_RADIUS);
-            ctx.fillStyle = bar.color;
-            ctx.globalAlpha = 0.88;
-            ctx.fill();
-
-            // 3. LED Dot Texture Mask inside the pill
-            ctx.clip();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#070709';
-            ctx.globalAlpha = 0.45;
-
-            // Draw dark dot mask to emulate LED board texture
-            for (let dotY = y - 5; dotY <= y + h + 5; dotY += DOT_SPACING) {
-                for (let dotX = x - 5; dotX <= x + BAR_WIDTH + 5; dotX += DOT_SPACING) {
-                    ctx.beginPath();
-                    ctx.arc(dotX, dotY, DOT_RADIUS, 0, Math.PI * 2);
-                    ctx.fill();
+                    const expansion = combinedEnergy * BARS[i].baseH * 1.5;
+                    BARS[i].targetH = Math.max(28, (BARS[i].baseH * 0.4) + expansion);
+                }
+            } else if (isAudioPlaying) {
+                // Rhythmic voice wave simulation
+                for (let i = 0; i < BARS.length; i++) {
+                    const wave = Math.sin((time * 0.008) + (i * 0.85));
+                    BARS[i].targetH = BARS[i].baseH + (wave * 40);
+                }
+            } else {
+                // Gentle idle breathing
+                for (let i = 0; i < BARS.length; i++) {
+                    const wave = Math.sin((time * 0.0025) + (i * 0.6));
+                    BARS[i].targetH = Math.max(26, (BARS[i].baseH * 0.35) + (wave * 6));
                 }
             }
 
-            ctx.restore();
+            // Smooth spring ease
+            for (let i = 0; i < BARS.length; i++) {
+                BARS[i].curH += (BARS[i].targetH - BARS[i].curH) * 0.22;
+            }
+
+            // Render the 7 glowing LED pill bars
+            for (let i = 0; i < BARS.length; i++) {
+                const bar = BARS[i];
+                const x = startX + i * (BAR_WIDTH + BAR_GAP);
+                const h = Math.max(BAR_WIDTH, bar.curH);
+                const y = centerY - (h / 2);
+
+                ctx.save();
+
+                // 1. Neon Glow
+                ctx.shadowColor = bar.glow;
+                ctx.shadowBlur = isAudioPlaying ? 24 : 10;
+
+                // 2. Main Pill Body
+                drawPill(ctx, x, y, BAR_WIDTH, h, PILL_RADIUS);
+                ctx.fillStyle = bar.color;
+                ctx.globalAlpha = 0.92;
+                ctx.fill();
+
+                // 3. LED Dot Matrix Mask
+                ctx.clip();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#070709';
+                ctx.globalAlpha = 0.42;
+
+                for (let dotY = y - 4; dotY <= y + h + 4; dotY += DOT_SPACING) {
+                    for (let dotX = x - 4; dotX <= x + BAR_WIDTH + 4; dotX += DOT_SPACING) {
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, DOT_RADIUS, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                ctx.restore();
+            }
+        } catch (err) {
+            console.error('Visualizer render error:', err);
         }
 
         animFrame = requestAnimationFrame(drawVisualizer);
     }
 
     requestAnimationFrame(drawVisualizer);
+
+
 
     // --- WebSocket & Audio Streaming Pipeline ---
     let ws = null;
@@ -625,21 +681,6 @@
         incomingChunks = [];
     }
 
-    // --- Web Audio Playback with Real-time Analyser ---
-    function ensureAudioContext() {
-        if (!audioCtx) {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            audioCtx = new AudioContextClass();
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 64;
-            analyser.smoothingTimeConstant = 0.78;
-            freqData = new Uint8Array(analyser.frequencyBinCount);
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-    }
-
     function playStreamedAudio(chunks) {
         if (!chunks || chunks.length === 0) return;
 
@@ -647,26 +688,24 @@
 
         const audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
         const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
 
-        try {
-            const source = audioCtx.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-        } catch (_) {}
-
+        persistentAudio.src = audioUrl;
         isAudioPlaying = true;
         subtitle.innerText = 'Speaking...';
 
-        audio.play().catch(e => {
-            console.warn('Autoplay blocked:', e);
+        persistentAudio.play().catch(e => {
+            console.warn('Playback error / autoplay blocked:', e);
+            // If autoplay is blocked by browser gesture policy, ensure user interaction resumes it
+            subtitle.innerText = 'Click anywhere to enable audio playback.';
+            const resumeHandler = () => {
+                ensureAudioContext();
+                persistentAudio.play();
+                document.removeEventListener('click', resumeHandler);
+            };
+            document.addEventListener('click', resumeHandler);
         });
-
-        audio.onended = () => {
-            isAudioPlaying = false;
-            subtitle.innerText = 'Listening...';
-        };
     }
+
 </script>
 
 </body>
