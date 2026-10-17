@@ -59,11 +59,13 @@
             position: relative;
             z-index: 10;
             width: 100%;
-            max-width: 900px;
-            padding: 24px 32px;
+            max-width: 1040px;
+            padding: 20px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
         }
 
         .brand {
@@ -75,6 +77,76 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Theme Selector Bar */
+        .theme-selector {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 4px;
+            backdrop-filter: blur(12px);
+            gap: 2px;
+        }
+
+        .theme-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted-color);
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+        }
+
+        .theme-btn:hover {
+            color: #cbd5e1;
+        }
+
+        .theme-btn.active {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .demo-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 13px;
+            border-radius: 999px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #c4b5fd;
+            font-size: 0.76rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(12px);
+        }
+
+        .demo-btn:hover {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+
+        .demo-btn.active {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: #a855f7;
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
         }
 
         .status-pill {
@@ -137,12 +209,14 @@
         }
 
         canvas#ledCanvas {
-            border-radius: 16px;
-            filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.8));
+            border-radius: 24px;
+            max-width: 92vw;
+            height: auto;
+            filter: drop-shadow(0 0 25px rgba(0, 0, 0, 0.8));
         }
 
         .subtitle-box {
-            margin-top: 36px;
+            margin-top: 24px;
             min-height: 28px;
             max-width: 580px;
             text-align: center;
@@ -331,6 +405,17 @@
             background: rgba(255, 255, 255, 0.08);
             color: #e2e8f0;
         }
+
+        @media (max-width: 720px) {
+            header {
+                justify-content: center;
+                padding: 16px;
+            }
+            .theme-selector {
+                overflow-x: auto;
+                max-width: 92vw;
+            }
+        }
     </style>
 </head>
 <body>
@@ -339,18 +424,35 @@
         <div class="brand">
             <span>Voice Core</span>
         </div>
-        <button id="statusPill" class="status-pill" onclick="openConfig()">
-            <span class="status-dot"></span>
-            <span id="statusLabel">Disconnected</span>
-        </button>
+
+        <div class="header-controls">
+            <!-- Visualizer Theme Switcher -->
+            <div class="theme-selector" role="tablist" aria-label="Visualizer Themes">
+                <button class="theme-btn active" onclick="setTheme('pills', this)">LED Pills</button>
+                <button class="theme-btn" onclick="setTheme('orb', this)">Siri Orb</button>
+                <button class="theme-btn" onclick="setTheme('ring', this)">Cyber Ring</button>
+                <button class="theme-btn" onclick="setTheme('aurora', this)">Aurora Waves</button>
+                <button class="theme-btn" onclick="setTheme('quantum', this)">Quantum Core</button>
+            </div>
+
+            <!-- Voice Simulator Toggle for instant previewing -->
+            <button id="demoBtn" class="demo-btn" onclick="toggleDemoAudio()" title="Simulate voice audio to test themes">
+                <span>✦ Sim Voice</span>
+            </button>
+
+            <button id="statusPill" class="status-pill" onclick="openConfig()">
+                <span class="status-dot"></span>
+                <span id="statusLabel">Disconnected</span>
+            </button>
+        </div>
     </header>
 
     <main>
         <div class="visualizer-wrapper">
-            <canvas id="ledCanvas" width="460" height="280"></canvas>
+            <canvas id="ledCanvas" width="600" height="380"></canvas>
         </div>
         <div id="subtitle" class="subtitle-box muted">
-            Click "Disconnected" to connect and talk
+            Click "Disconnected" to connect or "✦ Sim Voice" to preview themes
         </div>
     </main>
 
@@ -391,17 +493,41 @@
     </div>
 
 <script>
-    // --- Visualizer Implementation: 7 LED Pill Bars matching the GIF ---
     const canvas = document.getElementById('ledCanvas');
     const ctx = canvas.getContext('2d');
 
-    // The 7 signature colors from the GIF:
-    // Yellow, Cyan, Emerald Green, Pure White, Coral/Neon Red, Amber, Electric Blue
+    // --- State & Theme Management ---
+    let currentTheme = 'pills';
+    let isAudioPlaying = false;
+    let isDemoActive = false;
+
+    function setTheme(themeName, btnEl) {
+        currentTheme = themeName;
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+    }
+
+    function toggleDemoAudio() {
+        isDemoActive = !isDemoActive;
+        const btn = document.getElementById('demoBtn');
+        btn.classList.toggle('active', isDemoActive);
+        if (isDemoActive) {
+            subtitle.innerText = 'Simulating neural voice stream...';
+            subtitle.classList.remove('muted');
+        } else if (!isAudioPlaying) {
+            subtitle.innerText = ws && ws.readyState === WebSocket.OPEN
+                ? 'Ready. Type a message below.'
+                : 'Click "Disconnected" to connect or "✦ Sim Voice" to preview themes';
+            if (!ws || ws.readyState !== WebSocket.OPEN) subtitle.classList.add('muted');
+        }
+    }
+
+    // --- Theme 1 Config: 7 LED Pill Bars ---
     const BARS = [
         { color: '#FCEE21', glow: 'rgba(252, 238, 33, 0.45)',  targetH: 40, curH: 40, baseH: 40 },
-        { color: '#00D2FF', glow: 'rgba(0, 210, 255, 0.45)',  targetH: 30, curH: 30, baseH: 30 },
-        { color: '#00E676', glow: 'rgba(0, 230, 118, 0.45)',  targetH: 52, curH: 52, baseH: 52 },
-        { color: '#FFFFFF', glow: 'rgba(255, 255, 255, 0.6)',   targetH: 140, curH: 140, baseH: 140 },
+        { color: '#00D2FF', glow: 'rgba(0, 210, 255, 0.45)',   targetH: 30, curH: 30, baseH: 30 },
+        { color: '#00E676', glow: 'rgba(0, 230, 118, 0.45)',   targetH: 52, curH: 52, baseH: 52 },
+        { color: '#FFFFFF', glow: 'rgba(255, 255, 255, 0.6)',  targetH: 140, curH: 140, baseH: 140 },
         { color: '#FF4D4D', glow: 'rgba(255, 77, 77, 0.55)',   targetH: 190, curH: 190, baseH: 190 },
         { color: '#FFB300', glow: 'rgba(255, 179, 0, 0.45)',   targetH: 110, curH: 110, baseH: 110 },
         { color: '#1E6BFF', glow: 'rgba(30, 107, 255, 0.45)',  targetH: 35, curH: 35, baseH: 35 }
@@ -413,10 +539,32 @@
     const DOT_SPACING = 3.6;
     const DOT_RADIUS = 1.1;
 
-    // Persistent Audio & Web Audio elements to ensure the analyser stays connected
+    // --- Theme 3 Config: Cyber Ring Smooth Array ---
+    const RING_BINS = 64;
+    const ringSmoothed = new Float32Array(RING_BINS);
+
+    // --- Theme 5 Config: Quantum 3D Fibonacci Sphere ---
+    const QUANTUM_COUNT = 115;
+    const quantumNodes = [];
+    const goldenRatio = (1 + Math.sqrt(5)) / 2;
+    for (let i = 0; i < QUANTUM_COUNT; i++) {
+        const theta = 2 * Math.PI * i / goldenRatio;
+        const phi = Math.acos(1 - 2 * (i + 0.5) / QUANTUM_COUNT);
+        quantumNodes.push({
+            x: Math.cos(theta) * Math.sin(phi),
+            y: Math.sin(theta) * Math.sin(phi),
+            z: Math.cos(phi),
+            hue: (i * 3.2) % 360,
+            freqIdx: i % 32
+        });
+    }
+
+    // --- Persistent Audio & Web Audio API ---
     let audioCtx = null;
     let analyser = null;
     let freqData = null;
+    let synthFreqData = new Uint8Array(64);
+    let smoothEnergy = 0;
     let animFrame = null;
     let persistentAudio = null;
     let audioSourceNode = null;
@@ -426,8 +574,8 @@
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContextClass();
             analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 128; // 64 frequency bins, perfect resolution for vocal range
-            analyser.smoothingTimeConstant = 0.65; // Responsive and snappy
+            analyser.fftSize = 128; // 64 frequency bins
+            analyser.smoothingTimeConstant = 0.68;
             freqData = new Uint8Array(analyser.frequencyBinCount);
 
             persistentAudio = new Audio();
@@ -445,7 +593,44 @@
         }
     }
 
-    // Universal Rounded Pill Path (compatible with every browser, never crashes)
+    // Extract or synthesize 64 frequency bins + overall vocal energy
+    function getAudioSpectrum(time) {
+        const active = isAudioPlaying || isDemoActive;
+        let sum = 0;
+
+        if (isAudioPlaying && analyser && freqData) {
+            analyser.getByteFrequencyData(freqData);
+            for (let i = 0; i < 64; i++) {
+                synthFreqData[i] = freqData[i];
+                if (i >= 1 && i <= 20) sum += freqData[i];
+            }
+        } else if (active) {
+            // Realistic syllabic voice cadence simulation
+            const syllableGate = Math.pow(Math.max(0, Math.sin(time * 0.0045) * Math.cos(time * 0.0023)), 1.2);
+            const microMod = 0.65 + 0.35 * Math.sin(time * 0.013);
+            for (let i = 0; i < 64; i++) {
+                const formant1 = Math.exp(-Math.pow((i - 6) / 4.5, 2));
+                const formant2 = Math.exp(-Math.pow((i - 16) / 7, 2)) * 0.65;
+                const harmonicWave = Math.sin(time * 0.011 - i * 0.35) * 0.5 + 0.5;
+                const val = (formant1 + formant2) * syllableGate * microMod * (0.55 + 0.45 * harmonicWave) * 255;
+                synthFreqData[i] = Math.min(255, Math.max(0, val));
+                if (i >= 1 && i <= 20) sum += synthFreqData[i];
+            }
+        } else {
+            // Subtle ambient breathing spectrum
+            for (let i = 0; i < 64; i++) {
+                const breathe = (Math.sin(time * 0.0022 + i * 0.25) * 0.5 + 0.5) * 18;
+                synthFreqData[i] = breathe;
+                if (i >= 1 && i <= 20) sum += breathe;
+            }
+        }
+
+        const rawEnergy = sum / (20 * 255);
+        smoothEnergy += (rawEnergy - smoothEnergy) * 0.18;
+        return { bins: synthFreqData, energy: smoothEnergy, active };
+    }
+
+    // Universal Rounded Pill Path
     function drawPill(context, x, y, width, height, radius) {
         const r = Math.min(radius, width / 2, height / 2);
         context.beginPath();
@@ -461,88 +646,413 @@
         context.closePath();
     }
 
+    // ============================================================================
+    // THEME 1: 7 LED Pill Bars (Original Signature Look)
+    // ============================================================================
+    function renderLedPills(time, spectrum) {
+        const { bins, energy, active } = spectrum;
+        const totalWidth = (BARS.length * BAR_WIDTH) + ((BARS.length - 1) * BAR_GAP);
+        const startX = (canvas.width - totalWidth) / 2;
+        const centerY = canvas.height / 2;
+        const voiceBins = [2, 4, 6, 8, 11, 15, 20];
+
+        for (let i = 0; i < BARS.length; i++) {
+            if (active) {
+                const binEnergy = (bins[voiceBins[i]] || 0) / 255;
+                const combinedEnergy = (binEnergy * 0.65) + (energy * 0.35);
+                const expansion = combinedEnergy * BARS[i].baseH * 1.45;
+                BARS[i].targetH = Math.max(28, (BARS[i].baseH * 0.38) + expansion);
+            } else {
+                const wave = Math.sin((time * 0.0025) + (i * 0.6));
+                BARS[i].targetH = Math.max(26, (BARS[i].baseH * 0.35) + (wave * 6));
+            }
+            BARS[i].curH += (BARS[i].targetH - BARS[i].curH) * 0.22;
+        }
+
+        for (let i = 0; i < BARS.length; i++) {
+            const bar = BARS[i];
+            const x = startX + i * (BAR_WIDTH + BAR_GAP);
+            const h = Math.max(BAR_WIDTH, bar.curH);
+            const y = centerY - (h / 2);
+
+            ctx.save();
+            ctx.shadowColor = bar.glow;
+            ctx.shadowBlur = active ? 24 : 10;
+
+            drawPill(ctx, x, y, BAR_WIDTH, h, PILL_RADIUS);
+            ctx.fillStyle = bar.color;
+            ctx.globalAlpha = 0.92;
+            ctx.fill();
+
+            ctx.clip();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#070709';
+            ctx.globalAlpha = 0.42;
+
+            for (let dotY = y - 4; dotY <= y + h + 4; dotY += DOT_SPACING) {
+                for (let dotX = x - 4; dotX <= x + BAR_WIDTH + 4; dotX += DOT_SPACING) {
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, DOT_RADIUS, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+    }
+
+    // ============================================================================
+    // THEME 2: Siri Fluid Harmonic Orb
+    // ============================================================================
+    const ORB_LAYERS = [
+        { c1: '#00F2FE', c2: '#4FACFE', speed: 0.0022, lobes: 3, offset: 0 },
+        { c1: '#FF0844', c2: '#FFB199', speed: -0.0018, lobes: 4, offset: 2.1 },
+        { c1: '#B721FF', c2: '#21D4FD', speed: 0.0027, lobes: 5, offset: 4.2 },
+        { c1: '#00E676', c2: '#00B0FF', speed: -0.0015, lobes: 3, offset: 1.1 }
+    ];
+
+    function renderSiriOrb(time, spectrum) {
+        const { bins, energy, active } = spectrum;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const baseRadius = 72 + energy * 42;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+
+        // Ambient outer aura
+        const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.2, cx, cy, baseRadius * 2.1);
+        aura.addColorStop(0, `rgba(99, 102, 241, ${0.18 + energy * 0.35})`);
+        aura.addColorStop(0.5, `rgba(236, 72, 153, ${0.08 + energy * 0.2})`);
+        aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = aura;
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseRadius * 2.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Morphing harmonic blobs
+        ORB_LAYERS.forEach((layer, idx) => {
+            const binVal = (bins[(idx + 1) * 4] || 0) / 255;
+            const amp = (active ? 14 : 5) + binVal * 34 + energy * 20;
+
+            ctx.beginPath();
+            const steps = 90;
+            for (let s = 0; s <= steps; s++) {
+                const angle = (s / steps) * Math.PI * 2;
+                const harmonic1 = Math.sin(angle * layer.lobes + time * layer.speed + layer.offset);
+                const harmonic2 = Math.cos(angle * (layer.lobes + 2) - time * layer.speed * 1.4);
+                const r = baseRadius + (harmonic1 * 0.65 + harmonic2 * 0.35) * amp;
+                const px = cx + Math.cos(angle) * r;
+                const py = cy + Math.sin(angle) * r;
+                if (s === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+
+            const grad = ctx.createLinearGradient(
+                cx - baseRadius, cy - baseRadius,
+                cx + baseRadius, cy + baseRadius
+            );
+            grad.addColorStop(0, layer.c1);
+            grad.addColorStop(1, layer.c2);
+
+            ctx.fillStyle = grad;
+            ctx.globalAlpha = 0.55 + energy * 0.25;
+            ctx.shadowColor = layer.c1;
+            ctx.shadowBlur = 28;
+            ctx.fill();
+
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.globalAlpha = 0.35 + binVal * 0.4;
+            ctx.stroke();
+        });
+
+        // Bright Pearlescent Core
+        const coreGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, baseRadius * 0.85);
+        coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        coreGrad.addColorStop(0.45, `rgba(224, 242, 254, ${0.4 + energy * 0.4})`);
+        coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = coreGrad;
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseRadius * 0.85, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // ============================================================================
+    // THEME 3: Cyber Neon Radial Ring
+    // ============================================================================
+    function renderCyberRing(time, spectrum) {
+        const { bins, energy, active } = spectrum;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const innerRadius = 68 + energy * 14;
+
+        ctx.save();
+
+        // Outer rotating HUD dashed ring
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(time * 0.0005);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 10, 22, 10]);
+        ctx.beginPath();
+        ctx.arc(0, 0, innerRadius + 68, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Counter-rotating inner tech ring
+        ctx.rotate(-time * 0.0012);
+        ctx.strokeStyle = 'rgba(232, 121, 249, 0.25)';
+        ctx.setLineDash([4, 14]);
+        ctx.beginPath();
+        ctx.arc(0, 0, innerRadius - 14, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        // 64 Radial Frequency Bars
+        for (let i = 0; i < RING_BINS; i++) {
+            // Mirror frequency bins for symmetrical look
+            const binIdx = i < RING_BINS / 2 ? i : RING_BINS - 1 - i;
+            const raw = (bins[binIdx] || 0) / 255;
+            const target = active
+                ? 8 + raw * 78 + energy * 18
+                : 6 + Math.sin(time * 0.003 + i * 0.3) * 3;
+
+            ringSmoothed[i] += (target - ringSmoothed[i]) * 0.25;
+            const barLen = ringSmoothed[i];
+
+            const angle = (i / RING_BINS) * Math.PI * 2 - Math.PI / 2 + time * 0.0003;
+            const x1 = cx + Math.cos(angle) * innerRadius;
+            const y1 = cy + Math.sin(angle) * innerRadius;
+            const x2 = cx + Math.cos(angle) * (innerRadius + barLen);
+            const y2 = cy + Math.sin(angle) * (innerRadius + barLen);
+
+            const hue = (180 + (i / RING_BINS) * 180 + time * 0.02) % 360;
+            ctx.strokeStyle = `hsl(${hue}, 95%, 60%)`;
+            ctx.shadowColor = `hsl(${hue}, 95%, 55%)`;
+            ctx.shadowBlur = active ? 14 : 6;
+            ctx.lineWidth = 3.6;
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Floating peak dot outside each bar
+            if (barLen > 18) {
+                const dotDist = innerRadius + barLen + 8;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(angle) * dotDist, cy + Math.sin(angle) * dotDist, 1.6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Center Bass Pulse Core
+        const coreGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, innerRadius * 0.72);
+        coreGrad.addColorStop(0, `rgba(56, 189, 248, ${0.45 + energy * 0.5})`);
+        coreGrad.addColorStop(0.6, `rgba(168, 85, 247, ${0.15 + energy * 0.3})`);
+        coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = coreGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerRadius * 0.72, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // ============================================================================
+    // THEME 4: Aurora Borealis Ribbon Waves
+    // ============================================================================
+    const AURORA_WAVES = [
+        { color: '#00F5D4', rgb: '0, 245, 212', freq: 0.012, speed: 0.0032, phase: 0, bin: 2 },
+        { color: '#00BBF9', rgb: '0, 187, 249', freq: 0.015, speed: -0.0026, phase: 1.5, bin: 5 },
+        { color: '#9B5DE5', rgb: '155, 93, 229', freq: 0.010, speed: 0.0021, phase: 3.1, bin: 9 },
+        { color: '#F15BB5', rgb: '241, 91, 181', freq: 0.018, speed: -0.0038, phase: 4.7, bin: 13 },
+        { color: '#FEE440', rgb: '254, 228, 64',  freq: 0.014, speed: 0.0029, phase: 2.3, bin: 17 }
+    ];
+
+    function renderAuroraWaves(time, spectrum) {
+        const { bins, energy, active } = spectrum;
+        const cy = canvas.height / 2;
+        const width = canvas.width;
+        const padX = 36;
+        const usableW = width - padX * 2;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+
+        AURORA_WAVES.forEach((wave) => {
+            const binEnergy = (bins[wave.bin] || 0) / 255;
+            const maxAmp = (active ? 16 : 6) + binEnergy * 75 + energy * 38;
+
+            ctx.beginPath();
+            for (let x = padX; x <= width - padX; x += 4) {
+                const normX = (x - padX) / usableW; // 0 to 1
+                // Smooth bell envelope so ends taper cleanly to center
+                const envelope = Math.pow(Math.sin(normX * Math.PI), 1.6);
+
+                const yOffset =
+                    Math.sin(x * wave.freq + time * wave.speed + wave.phase) * maxAmp * envelope +
+                    Math.cos(x * wave.freq * 1.8 - time * wave.speed * 0.7) * (maxAmp * 0.35) * envelope;
+
+                const y = cy + yOffset;
+                if (x === padX) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+
+            // Glowing stroke
+            ctx.strokeStyle = wave.color;
+            ctx.shadowColor = wave.color;
+            ctx.shadowBlur = 18;
+            ctx.lineWidth = 2.6;
+            ctx.stroke();
+
+            // Subtle vertical gradient fill back to center baseline
+            ctx.lineTo(width - padX, cy);
+            ctx.lineTo(padX, cy);
+            ctx.closePath();
+
+            const fillGrad = ctx.createLinearGradient(0, cy - 110, 0, cy + 110);
+            fillGrad.addColorStop(0, `rgba(${wave.rgb}, 0.02)`);
+            fillGrad.addColorStop(0.5, `rgba(${wave.rgb}, ${0.14 + binEnergy * 0.22})`);
+            fillGrad.addColorStop(1, `rgba(${wave.rgb}, 0.02)`);
+            ctx.fillStyle = fillGrad;
+            ctx.fill();
+        });
+
+        ctx.restore();
+    }
+
+    // ============================================================================
+    // THEME 5: Quantum 3D Particle Core
+    // ============================================================================
+    function renderQuantumCore(time, spectrum) {
+        const { bins, energy, active } = spectrum;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const baseRadius = 88 + energy * 35;
+
+        const rotY = time * (active ? 0.0009 : 0.0004);
+        const rotX = time * 0.00035;
+        const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+        const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
+        const projected = [];
+
+        for (let i = 0; i < QUANTUM_COUNT; i++) {
+            const p = quantumNodes[i];
+            const binVal = (bins[p.freqIdx] || 0) / 255;
+            const displace = baseRadius + binVal * (active ? 46 : 8);
+
+            let x = p.x * displace;
+            let y = p.y * displace;
+            let z = p.z * displace;
+
+            // Rotate around Y then X
+            const x1 = x * cosY - z * sinY;
+            const z1 = z * cosY + x * sinY;
+            const y2 = y * cosX - z1 * sinX;
+            const z2 = z1 * cosX + y * sinX;
+
+            const fov = 320;
+            const scale = fov / (fov + z2);
+
+            projected.push({
+                sx: cx + x1 * scale,
+                sy: cy + y2 * scale,
+                z: z2,
+                scale,
+                binVal,
+                hue: (p.hue + time * 0.02) % 360
+            });
+        }
+
+        // Sort back-to-front (Painter's Algorithm)
+        projected.sort((a, b) => b.z - a.z);
+
+        ctx.save();
+
+        // Central gravity glow
+        const coreGlow = ctx.createRadialGradient(cx, cy, 2, cx, cy, baseRadius * 0.9);
+        coreGlow.addColorStop(0, `rgba(139, 92, 246, ${0.25 + energy * 0.45})`);
+        coreGlow.addColorStop(0.6, `rgba(14, 165, 233, ${0.1 + energy * 0.25})`);
+        coreGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = coreGlow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseRadius * 0.9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Constellation neural links between nearby foreground nodes
+        ctx.lineWidth = 1;
+        for (let i = 0; i < projected.length; i++) {
+            const a = projected[i];
+            if (a.z > 30) continue; // Only link front hemisphere for crisp depth
+            for (let j = i + 1; j < projected.length; j++) {
+                const b = projected[j];
+                if (b.z > 30) continue;
+                const dx = a.sx - b.sx;
+                const dy = a.sy - b.sy;
+                const distSq = dx * dx + dy * dy;
+                if (distSq < 1500) {
+                    const alpha = (1 - distSq / 1500) * (0.22 + energy * 0.4);
+                    ctx.strokeStyle = `hsla(${a.hue}, 90%, 70%, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.moveTo(a.sx, a.sy);
+                    ctx.lineTo(b.sx, b.sy);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Draw 3D Particles
+        for (let i = 0; i < projected.length; i++) {
+            const n = projected[i];
+            const depthAlpha = Math.max(0.18, Math.min(1, (n.scale - 0.65) * 1.8));
+            const radius = Math.max(1.2, (2.2 + n.binVal * 3.2) * n.scale);
+
+            ctx.fillStyle = `hsla(${n.hue}, 95%, 68%, ${depthAlpha})`;
+            ctx.shadowColor = `hsl(${n.hue}, 95%, 60%)`;
+            ctx.shadowBlur = n.binVal > 0.4 ? 12 : 4;
+
+            ctx.beginPath();
+            ctx.arc(n.sx, n.sy, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    // ============================================================================
+    // Master Render Loop
+    // ============================================================================
     function drawVisualizer(time) {
         try {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const spectrum = getAudioSpectrum(time);
 
-            const totalWidth = (BARS.length * BAR_WIDTH) + ((BARS.length - 1) * BAR_GAP);
-            const startX = (canvas.width - totalWidth) / 2;
-            const centerY = canvas.height / 2;
-
-            if (isAudioPlaying && analyser && freqData) {
-                analyser.getByteFrequencyData(freqData);
-
-                // Compute speech presence across vocal spectrum
-                let speechSum = 0;
-                for (let k = 1; k <= 16; k++) {
-                    speechSum += (freqData[k] || 0);
-                }
-                const speechPower = speechSum / (16 * 255); // 0.0 to 1.0
-
-                // 7 frequency bins tuned to vocal range
-                const voiceBins = [1, 2, 3, 4, 6, 8, 10];
-
-                for (let i = 0; i < BARS.length; i++) {
-                    const binVal = freqData[voiceBins[i]] || 0;
-                    const binEnergy = binVal / 255;
-                    const combinedEnergy = (binEnergy * 0.6) + (speechPower * 0.4);
-
-                    const expansion = combinedEnergy * BARS[i].baseH * 1.5;
-                    BARS[i].targetH = Math.max(28, (BARS[i].baseH * 0.4) + expansion);
-                }
-            } else if (isAudioPlaying) {
-                // Rhythmic voice wave simulation
-                for (let i = 0; i < BARS.length; i++) {
-                    const wave = Math.sin((time * 0.008) + (i * 0.85));
-                    BARS[i].targetH = BARS[i].baseH + (wave * 40);
-                }
-            } else {
-                // Gentle idle breathing
-                for (let i = 0; i < BARS.length; i++) {
-                    const wave = Math.sin((time * 0.0025) + (i * 0.6));
-                    BARS[i].targetH = Math.max(26, (BARS[i].baseH * 0.35) + (wave * 6));
-                }
-            }
-
-            // Smooth spring ease
-            for (let i = 0; i < BARS.length; i++) {
-                BARS[i].curH += (BARS[i].targetH - BARS[i].curH) * 0.22;
-            }
-
-            // Render the 7 glowing LED pill bars
-            for (let i = 0; i < BARS.length; i++) {
-                const bar = BARS[i];
-                const x = startX + i * (BAR_WIDTH + BAR_GAP);
-                const h = Math.max(BAR_WIDTH, bar.curH);
-                const y = centerY - (h / 2);
-
-                ctx.save();
-
-                // 1. Neon Glow
-                ctx.shadowColor = bar.glow;
-                ctx.shadowBlur = isAudioPlaying ? 24 : 10;
-
-                // 2. Main Pill Body
-                drawPill(ctx, x, y, BAR_WIDTH, h, PILL_RADIUS);
-                ctx.fillStyle = bar.color;
-                ctx.globalAlpha = 0.92;
-                ctx.fill();
-
-                // 3. LED Dot Matrix Mask
-                ctx.clip();
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#070709';
-                ctx.globalAlpha = 0.42;
-
-                for (let dotY = y - 4; dotY <= y + h + 4; dotY += DOT_SPACING) {
-                    for (let dotX = x - 4; dotX <= x + BAR_WIDTH + 4; dotX += DOT_SPACING) {
-                        ctx.beginPath();
-                        ctx.arc(dotX, dotY, DOT_RADIUS, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-                }
-
-                ctx.restore();
+            switch (currentTheme) {
+                case 'pills':
+                    renderLedPills(time, spectrum);
+                    break;
+                case 'orb':
+                    renderSiriOrb(time, spectrum);
+                    break;
+                case 'ring':
+                    renderCyberRing(time, spectrum);
+                    break;
+                case 'aurora':
+                    renderAuroraWaves(time, spectrum);
+                    break;
+                case 'quantum':
+                    renderQuantumCore(time, spectrum);
+                    break;
+                default:
+                    renderLedPills(time, spectrum);
             }
         } catch (err) {
             console.error('Visualizer render error:', err);
@@ -554,11 +1064,8 @@
     requestAnimationFrame(drawVisualizer);
 
 
-
     // --- WebSocket & Audio Streaming Pipeline ---
     let ws = null;
-    let audioQueue = [];
-    let isPlayingQueue = false;
     let incomingChunks = [];
     let streamDebounce = null;
 
@@ -617,7 +1124,6 @@
 
             ws.onmessage = (event) => {
                 if (typeof event.data === 'string') {
-                    // Acknowledgement or text
                     try {
                         const parsed = JSON.parse(event.data);
                         if (parsed.status === 'received') {
@@ -625,7 +1131,6 @@
                         }
                     } catch (_) {}
                 } else if (event.data instanceof ArrayBuffer) {
-                    // Audio stream frame received
                     incomingChunks.push(event.data);
                     clearTimeout(streamDebounce);
                     streamDebounce = setTimeout(() => {
@@ -695,7 +1200,6 @@
 
         persistentAudio.play().catch(e => {
             console.warn('Playback error / autoplay blocked:', e);
-            // If autoplay is blocked by browser gesture policy, ensure user interaction resumes it
             subtitle.innerText = 'Click anywhere to enable audio playback.';
             const resumeHandler = () => {
                 ensureAudioContext();
@@ -705,7 +1209,6 @@
             document.addEventListener('click', resumeHandler);
         });
     }
-
 </script>
 
 </body>
