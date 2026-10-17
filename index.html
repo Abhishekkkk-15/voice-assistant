@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant</title>
+    <style>
+        :root {
+            --bg-color: #070709;
+            --text-color: #f1f5f9;
+            --muted-color: #64748b;
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-bg: rgba(18, 18, 24, 0.7);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* LED Mesh / Dot Matrix Background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1.2px, transparent 1.2px);
+            background-size: 6px 6px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Radial Vignette */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 30%, rgba(7, 7, 9, 0.85) 85%);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* Top Minimal Header */
+        header {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 900px;
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(12px);
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--muted-color);
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .status-pill:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+            transition: all 0.3s ease;
+        }
+
+        .status-pill.connected .status-dot {
+            background: #22c55e;
+            box-shadow: 0 0 10px #22c55e;
+        }
+
+        .status-pill.connected {
+            color: #f1f5f9;
+        }
+
+        /* Center Visualizer Hero */
+        main {
+            position: relative;
+            z-index: 10;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .visualizer-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas#ledCanvas {
+            border-radius: 16px;
+            filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.8));
+        }
+
+        .subtitle-box {
+            margin-top: 36px;
+            min-height: 28px;
+            max-width: 580px;
+            text-align: center;
+            font-size: 1.05rem;
+            font-weight: 400;
+            line-height: 1.5;
+            color: #cbd5e1;
+            letter-spacing: -0.01em;
+            opacity: 0.9;
+            transition: opacity 0.3s ease;
+        }
+
+        .subtitle-box.muted {
+            color: #475569;
+            font-size: 0.9rem;
+        }
+
+        /* Bottom Floating Input Bar */
+        footer {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 640px;
+            padding: 0 24px 32px;
+        }
+
+        .input-bar {
+            display: flex;
+            align-items: center;
+            background: rgba(22, 22, 30, 0.75);
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 6px 8px 6px 20px;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            transition: all 0.25s ease;
+        }
+
+        .input-bar:focus-within {
+            border-color: rgba(255, 255, 255, 0.22);
+            box-shadow: 0 20px 45px -5px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+
+        .input-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 0.98rem;
+            padding: 10px 0;
+        }
+
+        .input-bar input::placeholder {
+            color: #475569;
+        }
+
+        .send-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: none;
+            background: #ffffff;
+            color: #000000;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            outline: none;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: scale(1.06);
+            background: #f1f5f9;
+        }
+
+        .send-btn:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+            background: #334155;
+            color: #94a3b8;
+        }
+
+        .send-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transform: translateX(1px);
+        }
+
+        /* Config Drawer / Modal */
+        .config-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .config-overlay.open {
+            display: flex;
+        }
+
+        .config-card {
+            background: #111116;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 28px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+        }
+
+        .config-card h2 {
+            font-size: 1.15rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted-color);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .field input {
+            width: 100%;
+            background: #1a1a22;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: white;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .field input:focus {
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #ffffff;
+            color: #000;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <span>Voice Core</span>
+        </div>
+        <button id="statusPill" class="status-pill" onclick="openConfig()">
+            <span class="status-dot"></span>
+            <span id="statusLabel">Disconnected</span>
+        </button>
+    </header>
+
+    <main>
+        <div class="visualizer-wrapper">
+            <canvas id="ledCanvas" width="460" height="280"></canvas>
+        </div>
+        <div id="subtitle" class="subtitle-box muted">
+            Click "Disconnected" to connect and talk
+        </div>
+    </main>
+
+    <footer>
+        <div class="input-bar">
+            <input type="text" id="promptInput" placeholder="Send a message to speak..." 
+                   disabled onkeydown="if(event.key === 'Enter') handleSend()">
+            <button id="sendBtn" class="send-btn" onclick="handleSend()" disabled title="Send">
+                <svg viewBox="0 0 24 24">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Configuration Modal -->
+    <div id="configOverlay" class="config-overlay" onclick="if(event.target === this) closeConfig()">
+        <div class="config-card">
+            <h2>Connection Settings</h2>
+            <div class="field">
+                <label for="roomInput">Room</label>
+                <input type="text" id="roomInput" value="general">
+            </div>
+            <div class="field">
+                <label for="userIdInput">User ID</label>
+                <input type="text" id="userIdInput" value="user_1">
+            </div>
+            <div class="field">
+                <label for="serverUrlInput">WebSocket URL</label>
+                <input type="text" id="serverUrlInput" value="ws://127.0.0.1:8080/ws">
+            </div>
+            <div class="btn-group">
+                <button class="btn-action btn-secondary" onclick="closeConfig()">Cancel</button>
+                <button id="connectToggleBtn" class="btn-action btn-primary" onclick="toggleConnectionFromModal()">Connect</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- Visualizer Implementation: 7 LED Pill Bars matching the GIF ---
+    const canvas = document.getElementById('ledCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // The 7 signature colors from the GIF:
+    // Yellow, Cyan, Emerald Green, Pure White, Coral/Neon Red, Amber, Electric Blue
+    const BARS = [
+        { color: '#FCEE21', glow: 'rgba(252, 238, 33, 0.45)',  targetH: 40, curH: 40, baseH: 40 },
+        { color: '#00D2FF', glow: 'rgba(0, 210, 255, 0.45)',  targetH: 30, curH: 30, baseH: 30 },
+        { color: '#00E676', glow: 'rgba(0, 230, 118, 0.45)',  targetH: 52, curH: 52, baseH: 52 },
+        { color: '#FFFFFF', glow: 'rgba(255, 255, 255, 0.6)',   targetH: 140, curH: 140, baseH: 140 },
+        { color: '#FF4D4D', glow: 'rgba(255, 77, 77, 0.55)',   targetH: 190, curH: 190, baseH: 190 },
+        { color: '#FFB300', glow: 'rgba(255, 179, 0, 0.45)',   targetH: 110, curH: 110, baseH: 110 },
+        { color: '#1E6BFF', glow: 'rgba(30, 107, 255, 0.45)',  targetH: 35, curH: 35, baseH: 35 }
+    ];
+
+    const BAR_WIDTH = 26;
+    const BAR_GAP = 16;
+    const PILL_RADIUS = 13;
+    const DOT_SPACING = 3.6;
+    const DOT_RADIUS = 1.1;
+
+    let isAudioPlaying = false;
+    let audioCtx = null;
+    let analyser = null;
+    let freqData = null;
+    let animFrame = null;
+
+    function drawVisualizer(time) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const totalWidth = (BARS.length * BAR_WIDTH) + ((BARS.length - 1) * BAR_GAP);
+        const startX = (canvas.width - totalWidth) / 2;
+        const centerY = canvas.height / 2;
+
+        // If audio is playing with Web Audio analyser, map frequencies to heights
+        if (isAudioPlaying && analyser && freqData) {
+            analyser.getByteFrequencyData(freqData);
+            // Map 7 frequency bins to the 7 bars
+            const binStep = Math.floor(freqData.length / 10);
+            for (let i = 0; i < BARS.length; i++) {
+                const binIndex = 1 + i * binStep;
+                const value = freqData[binIndex] || 0;
+                const energy = value / 255;
+                BARS[i].targetH = Math.max(30, BARS[i].baseH * 0.4 + (energy * 180));
+            }
+        } else if (isAudioPlaying) {
+            // Organic wave animation while playing before analyser takes over
+            for (let i = 0; i < BARS.length; i++) {
+                const wave = Math.sin((time * 0.007) + (i * 0.85));
+                BARS[i].targetH = BARS[i].baseH + (wave * 45);
+            }
+        } else {
+            // Idle breathing state
+            for (let i = 0; i < BARS.length; i++) {
+                const wave = Math.sin((time * 0.0025) + (i * 0.6));
+                BARS[i].targetH = Math.max(26, BARS[i].baseH * 0.35 + (wave * 6));
+            }
+        }
+
+        // Smooth height interpolation (spring-like ease)
+        for (let i = 0; i < BARS.length; i++) {
+            BARS[i].curH += (BARS[i].targetH - BARS[i].curH) * 0.18;
+        }
+
+        // Draw each glowing pill with LED dot matrix pattern
+        for (let i = 0; i < BARS.length; i++) {
+            const bar = BARS[i];
+            const x = startX + i * (BAR_WIDTH + BAR_GAP);
+            const h = Math.max(BAR_WIDTH, bar.curH);
+            const y = centerY - (h / 2);
+
+            ctx.save();
+
+            // 1. Outer Glow
+            ctx.shadowColor = bar.glow;
+            ctx.shadowBlur = isAudioPlaying ? 22 : 12;
+
+            // 2. Pill Path for clipping and background
+            ctx.beginPath();
+            ctx.roundRect(x, y, BAR_WIDTH, h, PILL_RADIUS);
+            ctx.fillStyle = bar.color;
+            ctx.globalAlpha = 0.88;
+            ctx.fill();
+
+            // 3. LED Dot Texture Mask inside the pill
+            ctx.clip();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#070709';
+            ctx.globalAlpha = 0.45;
+
+            // Draw dark dot mask to emulate LED board texture
+            for (let dotY = y - 5; dotY <= y + h + 5; dotY += DOT_SPACING) {
+                for (let dotX = x - 5; dotX <= x + BAR_WIDTH + 5; dotX += DOT_SPACING) {
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, DOT_RADIUS, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        animFrame = requestAnimationFrame(drawVisualizer);
+    }
+
+    requestAnimationFrame(drawVisualizer);
+
+    // --- WebSocket & Audio Streaming Pipeline ---
+    let ws = null;
+    let audioQueue = [];
+    let isPlayingQueue = false;
+    let incomingChunks = [];
+    let streamDebounce = null;
+
+    const statusPill = document.getElementById('statusPill');
+    const statusLabel = document.getElementById('statusLabel');
+    const promptInput = document.getElementById('promptInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const subtitle = document.getElementById('subtitle');
+    const configOverlay = document.getElementById('configOverlay');
+    const connectToggleBtn = document.getElementById('connectToggleBtn');
+
+    const roomInput = document.getElementById('roomInput');
+    const userIdInput = document.getElementById('userIdInput');
+    const serverUrlInput = document.getElementById('serverUrlInput');
+
+    function openConfig() {
+        configOverlay.classList.add('open');
+    }
+
+    function closeConfig() {
+        configOverlay.classList.remove('open');
+    }
+
+    function toggleConnectionFromModal() {
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+            disconnect();
+        } else {
+            connect();
+        }
+        closeConfig();
+    }
+
+    function connect() {
+        const room = encodeURIComponent(roomInput.value.trim() || 'general');
+        const userId = encodeURIComponent(userIdInput.value.trim() || 'user_1');
+        const base = serverUrlInput.value.trim() || 'ws://127.0.0.1:8080/ws';
+        const url = `${base}?room=${room}&user_id=${userId}`;
+
+        statusLabel.innerText = 'Connecting...';
+        subtitle.innerText = 'Connecting to assistant...';
+
+        try {
+            ws = new WebSocket(url);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                statusPill.classList.add('connected');
+                statusLabel.innerText = `Room: ${roomInput.value.trim()}`;
+                connectToggleBtn.innerText = 'Disconnect';
+                promptInput.disabled = false;
+                sendBtn.disabled = false;
+                subtitle.innerText = 'Ready. Type a message below.';
+                subtitle.classList.remove('muted');
+                promptInput.focus();
+            };
+
+            ws.onmessage = (event) => {
+                if (typeof event.data === 'string') {
+                    // Acknowledgement or text
+                    try {
+                        const parsed = JSON.parse(event.data);
+                        if (parsed.status === 'received') {
+                            subtitle.innerText = 'Synthesizing voice...';
+                        }
+                    } catch (_) {}
+                } else if (event.data instanceof ArrayBuffer) {
+                    // Audio stream frame received
+                    incomingChunks.push(event.data);
+                    clearTimeout(streamDebounce);
+                    streamDebounce = setTimeout(() => {
+                        playStreamedAudio(incomingChunks);
+                        incomingChunks = [];
+                    }, 220);
+                }
+            };
+
+            ws.onclose = () => {
+                disconnectCleanup();
+            };
+
+            ws.onerror = (e) => {
+                console.error('WS Error:', e);
+                disconnectCleanup();
+            };
+
+        } catch (e) {
+            console.error(e);
+            disconnectCleanup();
+        }
+    }
+
+    function disconnect() {
+        if (ws) ws.close();
+        disconnectCleanup();
+    }
+
+    function disconnectCleanup() {
+        statusPill.classList.remove('connected');
+        statusLabel.innerText = 'Disconnected';
+        connectToggleBtn.innerText = 'Connect';
+        promptInput.disabled = true;
+        sendBtn.disabled = true;
+        subtitle.innerText = 'Disconnected. Click above to connect.';
+        subtitle.classList.add('muted');
+        isAudioPlaying = false;
+    }
+
+    function handleSend() {
+        const text = promptInput.value.trim();
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+        const payload = {
+            room: roomInput.value.trim() || 'general',
+            content: text
+        };
+
+        ws.send(JSON.stringify(payload));
+        subtitle.innerText = `“${text}”`;
+        promptInput.value = '';
+        incomingChunks = [];
+    }
+
+    // --- Web Audio Playback with Real-time Analyser ---
+    function ensureAudioContext() {
+        if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 64;
+            analyser.smoothingTimeConstant = 0.78;
+            freqData = new Uint8Array(analyser.frequencyBinCount);
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playStreamedAudio(chunks) {
+        if (!chunks || chunks.length === 0) return;
+
+        ensureAudioContext();
+
+        const audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        try {
+            const source = audioCtx.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+        } catch (_) {}
+
+        isAudioPlaying = true;
+        subtitle.innerText = 'Speaking...';
+
+        audio.play().catch(e => {
+            console.warn('Autoplay blocked:', e);
+        });
+
+        audio.onended = () => {
+            isAudioPlaying = false;
+            subtitle.innerText = 'Listening...';
+        };
+    }
+</script>
+
+</body>
+</html>

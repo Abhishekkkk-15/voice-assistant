@@ -1,5 +1,8 @@
+use std::pin::Pin;
+
 use reqwest::{Client, Error, header::{CONTENT_TYPE, HeaderMap, HeaderValue, IntoHeaderName}};
 use bytes;
+use futures_util::StreamExt;
 
 use crate::utlis::config::AppConfig;
 pub struct Audio{
@@ -13,7 +16,7 @@ impl Audio{
         }
     }
 
-    pub async fn stt(&self, text:String)->Result<bytes::Bytes,  Error>{
+    pub async fn stt(&self, text:String)-> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
         let config = &AppConfig::global();
         let mut headers = HeaderMap::new();
         headers.insert("Ocp-Apim-Subscription-Key", HeaderValue::from_static(&config.api_key));
@@ -27,7 +30,7 @@ impl Audio{
         &config.tts_voice, text                                                                                                                                                                  
     );
         let req  = self.req_client.post(config.openai_base_url.clone()).headers(headers).body(ssml_body).send().await;
-        Ok(req.unwrap().bytes().await.unwrap())
+        req.unwrap().bytes_stream().boxed()
     }
 
 }

@@ -75,22 +75,14 @@ async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Da
             broadcast_msg = my_rx.recv() => {
                 match broadcast_msg {
                     Ok(msg) => {
-                        let res = agent.speech_generation("Hey there, how's it going").await;
-                        match res{
-                            Ok(b) => {
-                               if session.binary(b).await.is_err() {
-                            break;
-                        }
-                                
-                            },
-                            Err(e) =>{
-                                println!("got here 2");
-                                print!("panic : {}",e);
-                            }
-                        }
-                        // if session.binary(byt).await.is_err() {
-                        //     break;
-                        // }
+                        let mut stream = agent.speech_generation(&msg).await;
+                        while let Some(chunk) = stream.next().await{
+                            
+                            if session.binary(chunk.unwrap()).await.is_err(){
+                                break;
+                            };
+                        };
+                     
                     }
                     Err(broadcast::error::RecvError::Lagged(n)) => {
                         eprintln!("Client lagged behind by {n} messages");

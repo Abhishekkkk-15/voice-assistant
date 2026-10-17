@@ -1,6 +1,9 @@
+use std::pin::Pin;
+
 use async_openai::Client;
 use async_openai::config::{AzureConfig };
 use async_openai::types::completions::CreateCompletionRequest;
+use futures_util::StreamExt;
 use crate::core::audio::Audio;
 use crate::utlis::config::AppConfig;
 use bytes;
@@ -26,8 +29,13 @@ impl Agent{
         Self { client: Client::with_config(AzureConfig::new().with_api_base(config.openai_base_url.clone()).with_api_key(config.api_key.clone())), system_prompt: system_prompt.to_string(), history: Vec::new(),audio_client:Audio::new() }
     }
 
-    pub async fn speech_generation(&self, text:&str)->Result<bytes::Bytes, reqwest::Error>{
-        self.audio_client.stt(text.to_string()).await
+    pub async fn speech_generation(&self, text:&str)-> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>>{
+        let stream = self.audio_client.stt(text.to_string()).await;
+        // while let Some(chunks) = stream.await.next().await{
+        //     Ok(chunks)
+        // }
+        return stream
+
     }
 
 }
