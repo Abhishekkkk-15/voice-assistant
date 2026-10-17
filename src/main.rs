@@ -8,10 +8,12 @@ use futures_util::StreamExt;
 
 use tokio::sync::broadcast;
 use utlis::{session::{WSSession}};
+use core::agent::{Agent};
 
 use std::{collections::HashMap, sync::{ Mutex, mpsc::Sender}};
 use std::sync::Arc;
 use serde_json;
+
 
 use crate::model::message::{ClientMessage, WsQuery};
 
@@ -27,6 +29,7 @@ async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Da
     let rx = tx.subscribe();
     (tx, rx)
     }; 
+                        let agent = Agent::new("U are a help full assistent");
 
  loop { 
         tokio::select! {
@@ -39,8 +42,9 @@ async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Da
                                     println!("Received JSON: {:?}", parsed);
 
                                     let _ = room_tx.send(parsed.content);
-
+                                    
                                     let _ = session.text("{\"status\":\"received\"}").await;
+                                    
                                 }
                                 Err(err) => {
                                     eprintln!("Invalid JSON: {err}");
@@ -71,9 +75,22 @@ async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Da
             broadcast_msg = my_rx.recv() => {
                 match broadcast_msg {
                     Ok(msg) => {
-                        if session.text(msg).await.is_err() {
+                        let res = agent.speech_generation("Hey there, how's it going").await;
+                        match res{
+                            Ok(b) => {
+                               if session.binary(b).await.is_err() {
                             break;
                         }
+                                
+                            },
+                            Err(e) =>{
+                                println!("got here 2");
+                                print!("panic : {}",e);
+                            }
+                        }
+                        // if session.binary(byt).await.is_err() {
+                        //     break;
+                        // }
                     }
                     Err(broadcast::error::RecvError::Lagged(n)) => {
                         eprintln!("Client lagged behind by {n} messages");

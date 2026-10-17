@@ -1,22 +1,17 @@
 use async_openai::Client;
-use async_openai::config::{Config, OpenAIConfig};
+use async_openai::config::{AzureConfig };
 use async_openai::types::completions::CreateCompletionRequest;
+use crate::core::audio::Audio;
 use crate::utlis::config::AppConfig;
+use bytes;
+
 pub struct Agent {
     /// The core OpenAI client used to communicate with all endpoints
-    client: Client<OpenAIConfig>,
-    
-    // --- Model Configurations ---
-    /// The STT model (e.g., "whisper-1")
-    stt_model: String,
-    /// The Text Generation model (e.g., "gpt-4o", "gpt-4o-mini")
-    llm_model: String,
-    /// The TTS model (e.g., "tts-1", "tts-1-hd")
-    tts_model: String,
-    /// The selected voice for TTS (e.g., "alloy", "echo", "nova")
-    tts_voice: String,
+    client: Client<AzureConfig>,
 
-    // --- State & Memory ---
+    // Custom Audio Client
+    audio_client:Audio,
+
     /// System prompt setting the assistant's personality
     system_prompt: String,
     /// The sliding window memory of the conversation
@@ -25,9 +20,17 @@ pub struct Agent {
 
 
 impl Agent{
-    fn new(system_prompt:&str) -> Self {
+    pub fn new(system_prompt:&str) -> Self {
         let config = &AppConfig::global();
    
-        Self { client: Client::with_config(OpenAIConfig::default().with_api_base(config.openai_base_url.clone()).with_api_key(config.api_key.clone())), stt_model: config.stt_model.to_string(), llm_model: config.completion_model.to_string(), tts_model: config.tts_model.to_string(), tts_voice: config.tts_voice.to_string(), system_prompt: system_prompt.to_string(), history: Vec::new() }
+        Self { client: Client::with_config(AzureConfig::new().with_api_base(config.openai_base_url.clone()).with_api_key(config.api_key.clone())), system_prompt: system_prompt.to_string(), history: Vec::new(),audio_client:Audio::new() }
     }
+
+    pub async fn speech_generation(&self, text:&str)->Result<bytes::Bytes, reqwest::Error>{
+        self.audio_client.stt(text.to_string()).await
+    }
+
 }
+
+                                                                                                                                                              
+    

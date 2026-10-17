@@ -25,7 +25,7 @@ impl AppConfig{
     pub fn new()->Self{
         let key:String;
         dotenvy::dotenv().ok(); 
-        let api_key_res = env::var("SECRET_KEY");
+        let api_key_res = env::var("API_KEY");
         match  api_key_res {
             Ok(api_key  ) =>{
                 key = api_key;
@@ -37,9 +37,9 @@ impl AppConfig{
 
         Self{
             api_key: key,
-            openai_base_url: env::var("OPENAI_BASE_URL").unwrap_or("https://something".to_string()),
+            openai_base_url: env::var("OPENAI_BASE_URL").unwrap_or("https://centralindia.tts.speech.microsoft.com/cognitiveservices/v1".to_string()),
             completion_model: env::var("COMPLETION_MODEL").unwrap_or("gpt-5.6-luna".to_string()),
-            tts_model: env::var("TTS_MODEL").unwrap_or("something".to_string()),
+            tts_model: env::var("TTS_MODEL").unwrap_or("MAI-Voice-2".to_string()),
             stt_model: env::var("STT_MODEL").unwrap_or("something".to_string()),
             tts_voice:env::var("DEFAULT_TTS_VOICE").unwrap_or("alloy".to_string()),
         }
