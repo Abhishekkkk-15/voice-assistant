@@ -16,7 +16,7 @@ impl Audio{
         }
     }
 
-    pub async fn stt(&self, text:String)-> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
+    pub async fn tts(&self, text:String)-> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
         let config = &AppConfig::global();
         let mut headers = HeaderMap::new();
         headers.insert("Ocp-Apim-Subscription-Key", HeaderValue::from_static(&config.api_key));
@@ -32,6 +32,9 @@ impl Audio{
         let req  = self.req_client.post(config.azure_audio_url.clone()).headers(headers).body(ssml_body).send().await;
         req.unwrap().bytes_stream().boxed()
     }
+
+    // pub async fn 
+
 
 }
 

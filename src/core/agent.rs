@@ -35,7 +35,7 @@ impl Agent{
     }
 
     pub async fn speech_generation(&self, text:&str)-> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>>{
-        let stream = self.audio_client.stt(text.to_string()).await;
+        let stream = self.audio_client.tts(text.to_string()).await;
         // while let Some(chunks) = stream.await.next().await{
         //     Ok(chunks)
         // }
