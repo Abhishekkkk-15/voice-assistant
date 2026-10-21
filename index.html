@@ -689,7 +689,7 @@
     let persistentAudio = null;
     let audioSourceNode = null;
 
-    function ensureAudioContext() {
+    async function ensureAudioContext() {
         if (!audioCtx) {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContextClass();
@@ -701,7 +701,7 @@
             persistentAudio = new Audio();
             audioSourceNode = audioCtx.createMediaElementSource(persistentAudio);
             audioSourceNode.connect(analyser);
-            analyser.connect(audioCtx.destination);
+            audioSourceNode.connect(audioCtx.destination);
 
             persistentAudio.onended = () => {
                 isAudioPlaying = false;
@@ -709,7 +709,7 @@
             };
         }
         if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
+            await audioCtx.resume();
         }
     }
 
@@ -1193,6 +1193,8 @@
     const statusLabel = document.getElementById('statusLabel');
     const promptInput = document.getElementById('promptInput');
     const sendBtn = document.getElementById('sendBtn');
+    const micBtn = document.getElementById('micBtn');
+    const sysAudioBtn = document.getElementById('sysAudioBtn');
     const subtitle = document.getElementById('subtitle');
     const configOverlay = document.getElementById('configOverlay');
     const connectToggleBtn = document.getElementById('connectToggleBtn');
@@ -1421,6 +1423,9 @@
         }
     }
 
+    let micSilenceTimer = null;
+    let micMaxDurationTimer = null;
+
     async function toggleMicrophone() {
         if (isRecordingMic) {
             stopMicrophone();
@@ -1430,7 +1435,11 @@
     }
 
     async function startMicrophone() {
-        ensureAudioContext();
+        await ensureAudioContext();
+        if (audioCtx && audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+
         try {
             micMediaStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
@@ -1441,17 +1450,39 @@
                 }
             });
 
-            // 1. Live Visualizer Sync: Connect microphone to the visualizer's analyser
+            // 1. Live Visualizer Sync: Connect microphone to visualizer analyser
             micSourceNode = audioCtx.createMediaStreamSource(micMediaStream);
             micSourceNode.connect(analyser);
 
             // 2. Audio Capture: ScriptProcessor collects raw PCM Float32 samples
             recordedAudioBuffers = [];
+            let hasSpoken = false;
+
             micProcessorNode = audioCtx.createScriptProcessor(4096, 1, 1);
             micProcessorNode.onaudioprocess = (e) => {
                 if (!isRecordingMic) return;
                 const channelData = e.inputBuffer.getChannelData(0);
                 recordedAudioBuffers.push(new Float32Array(channelData));
+
+                // RMS calculation for Voice Activity / Silence Detection
+                let sum = 0;
+                for (let i = 0; i < channelData.length; i++) {
+                    sum += channelData[i] * channelData[i];
+                }
+                const rms = Math.sqrt(sum / channelData.length);
+
+                // Voice activity threshold
+                if (rms > 0.015) {
+                    hasSpoken = true;
+                    clearTimeout(micSilenceTimer);
+                    // Automatically send after 1.6s of silence once user has spoken
+                    micSilenceTimer = setTimeout(() => {
+                        if (isRecordingMic && hasSpoken && recordedAudioBuffers.length > 5) {
+                            console.log('Auto-sending audio after detected silence');
+                            stopMicrophone();
+                        }
+                    }, 1600);
+                }
             };
 
             // Connect to zero-gain so audio flows through processor without creating speaker feedback
@@ -1462,10 +1493,17 @@
             micZeroGain.connect(audioCtx.destination);
 
             isRecordingMic = true;
-            const micBtn = document.getElementById('micBtn');
             if (micBtn) micBtn.classList.add('recording');
-            subtitle.innerText = 'Listening to you... (Click mic when done)';
+            subtitle.innerText = 'Listening... Speak now (auto-sends on pause or click mic)';
             subtitle.classList.remove('muted');
+
+            // Maximum recording safeguard: 20s
+            clearTimeout(micMaxDurationTimer);
+            micMaxDurationTimer = setTimeout(() => {
+                if (isRecordingMic) {
+                    stopMicrophone();
+                }
+            }, 20000);
 
         } catch (err) {
             console.error('Microphone access error:', err);
@@ -1477,7 +1515,9 @@
         if (!isRecordingMic) return;
         isRecordingMic = false;
 
-        const micBtn = document.getElementById('micBtn');
+        clearTimeout(micSilenceTimer);
+        clearTimeout(micMaxDurationTimer);
+
         if (micBtn) micBtn.classList.remove('recording');
 
         // Disconnect mic nodes

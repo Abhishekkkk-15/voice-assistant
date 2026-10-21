@@ -3,7 +3,7 @@ mod model;
 mod core;
 
 use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, get, web::{self, Data}};
-use actix_ws::{Message, MessageStream, Session};
+use actix_ws::{AggregatedMessage, AggregatedMessageStream, Session};
 use futures_util::StreamExt;
 
 use tokio::sync::broadcast;
@@ -16,7 +16,7 @@ use serde_json;
 
 use crate::model::message::{ClientMessage, WsQuery};
 
-async fn room_handler(mut session: Session, mut msg_stream: MessageStream, data: Data<WSSession>, query: WsQuery) {
+async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStream, data: Data<WSSession>, query: WsQuery) {
     let (room_tx, mut my_rx) = {
         let mut store_guard = data.store.lock().unwrap();
         let tx = store_guard
@@ -35,7 +35,7 @@ async fn room_handler(mut session: Session, mut msg_stream: MessageStream, data:
             maybe_msg = msg_stream.recv() => {
                 match maybe_msg {
                     Some(Ok(msg)) => match msg {
-                        Message::Text(text) => {
+                        AggregatedMessage::Text(text) => {
                             match serde_json::from_str::<ClientMessage>(&text) {
                                 Ok(parsed) => {
                                     println!("Received Text JSON: {:?}", parsed);
@@ -49,7 +49,7 @@ async fn room_handler(mut session: Session, mut msg_stream: MessageStream, data:
                                 }
                             }
                         }
-                        Message::Binary(bin) => {
+                        AggregatedMessage::Binary(bin) => {
                             // Check if incoming binary data is a WAV audio file from microphone or system audio
                             if bin.starts_with(b"RIFF") {
                                 println!("🎤 Received WAV audio payload: {} bytes ({:.1} KB)", bin.len(), bin.len() as f64 / 1024.0);
@@ -80,12 +80,12 @@ async fn room_handler(mut session: Session, mut msg_stream: MessageStream, data:
                                 let _ = room_tx.send(parsed.content);
                             }
                         }
-                        Message::Ping(bytes) => {
+                        AggregatedMessage::Ping(bytes) => {
                             if session.pong(&bytes).await.is_err() {
                                 break;
                             }
                         }
-                        Message::Close(reason) => {
+                        AggregatedMessage::Close(reason) => {
                             let _ = session.close(reason).await;
                             break;
                         }
@@ -159,8 +159,11 @@ async fn index() -> HttpResponse {
 #[get("/ws")]
 async fn ws_handler(req: HttpRequest, stream: web::Payload, data: Data<WSSession>, query: web::Query<WsQuery>) -> Result<HttpResponse, Error> {
     let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
-    // Allow up to 15MB frames so audio recordings never trigger ProtocolError::Overflow
-    let msg_stream = msg_stream.max_frame_size(15 * 1024 * 1024);
+    // Allow up to 15MB frames and aggregate continuation frames
+    let msg_stream = msg_stream
+        .max_frame_size(15 * 1024 * 1024)
+        .aggregate_continuations()
+        .max_continuation_size(15 * 1024 * 1024);
     println!("WebSocket connected");
     let WsQuery { room, user_id } = query.into_inner();
     let ws_query = WsQuery { room, user_id };
