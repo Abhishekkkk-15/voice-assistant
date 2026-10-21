@@ -29,7 +29,7 @@ impl Audio{
         </speak>",                                                                                                                                                                       
         &config.tts_voice, text                                                                                                                                                                  
     );
-        let req  = self.req_client.post(config.openai_base_url.clone()).headers(headers).body(ssml_body).send().await;
+        let req  = self.req_client.post(config.azure_audio_url.clone()).headers(headers).body(ssml_body).send().await;
         req.unwrap().bytes_stream().boxed()
     }
 

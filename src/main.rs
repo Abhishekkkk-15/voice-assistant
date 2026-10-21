@@ -74,13 +74,19 @@ async fn room_handler(mut session:Session,mut msg_stream: MessageStream, data:Da
             broadcast_msg = my_rx.recv() => {
                 match broadcast_msg {
                     Ok(msg) => {
-                        let mut stream = agent.speech_generation(&msg).await;
-                        while let Some(chunk) = stream.next().await{
-                            
-                            if session.binary(chunk.unwrap()).await.is_err(){
-                                break;
-                            };
-                        };
+                        let agent_stream = agent.generation(msg.clone()).await.unwrap();
+                        // println!("{:?}",agent_stream.choices)
+                        // let Some(agentres) = agent_stream.choices[0].message.content;
+                        if let Some(val) = &agent_stream.choices[0].message.content {
+    println!("Extracted: {val}");
+    let mut stream = agent.speech_generation(&val).await;
+    while let Some(chunk) = stream.next().await{
+        
+        if session.binary(chunk.unwrap()).await.is_err(){
+            break;
+        };
+    };
+}
                      
                     }
                     Err(broadcast::error::RecvError::Lagged(n)) => {

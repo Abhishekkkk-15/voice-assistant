@@ -3,10 +3,10 @@ use std::pin::Pin;
 use async_openai::Client;
 use async_openai::config::{AzureConfig, OpenAIConfig };
 use async_openai::error::OpenAIError;
-use async_openai::types::chat::{ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateChatCompletionStreamResponse};
+use async_openai::types::chat::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateChatCompletionResponse, CreateChatCompletionStreamResponse};
 use async_openai::types::completions::{CreateCompletionRequest};
 
-use async_openai::types::realtime::SystemMessageContent;
+use async_openai::types::realtime::{Error, SystemMessageContent};
 use async_openai::types::stream::StreamResponse;
 use futures_util::{Stream, StreamExt};
 use crate::core::audio::Audio;
@@ -31,7 +31,7 @@ impl Agent{
     pub fn new(system_prompt:&str) -> Self {
         let config = &AppConfig::global();
    
-        Self { client: Client::with_config(OpenAIConfig::new().with_api_base(config.openai_base_url.clone()).with_api_key(config.api_key.clone())), system_prompt: system_prompt.to_string(), history: Vec::new(),audio_client:Audio::new() }
+        Self { client: Client::with_config(OpenAIConfig::new().with_api_base(config.openai_base_url.clone()).with_api_key(config.openai_api_key.clone())), system_prompt: system_prompt.to_string(), history: Vec::new(),audio_client:Audio::new() }
     }
 
     pub async fn speech_generation(&self, text:&str)-> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>>{
@@ -43,19 +43,33 @@ impl Agent{
 
     }
 
-     pub async fn generation(&self, text:String)->Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>{
+    pub async fn generation(&self, text:String)->Result<CreateChatCompletionResponse, OpenAIError>{
 
-       let request = CreateChatCompletionRequestArgs::default().model("sdfdf")
-       .messages([
-            ChatCompletionRequestSystemMessageArgs::default()
-                .content(self.system_prompt.clone())
-                .build().unwrap()
-                .into()
+    //    let request = CreateChatCompletionRequestArgs::default().model("gpt-5.6-luna")
+    //    .messages([
+    //         ChatCompletionRequestSystemMessageArgs::default()
+    //             .content(self.system_prompt.clone())
+    //             .build().unwrap()
+    //             .into()
+    //     ])
+    //    .build().unwrap();
+
+        let reques2t = CreateChatCompletionRequestArgs::default()
+        .model("gpt-5.6-luna")
+        .messages([
+            // Can also use ChatCompletionRequest<Role>MessageArgs for builder pattern
+            ChatCompletionRequestSystemMessage::from(self.system_prompt.clone()).into(),
+            ChatCompletionRequestUserMessage::from(text).into()
         ])
-       .build().unwrap();
+        .build()?;
 
-        let mut stream = self.client.chat().create_stream(request).await.unwrap();
-        stream
+        let  stream = self.client.chat().create(reques2t).await;
+       match stream{
+        Ok(res) => Ok(res),
+        Err(e) => {
+            println!("{:?}",e);
+            Err(e)}
+       }
     }
 
 }

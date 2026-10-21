@@ -15,6 +15,8 @@ pub struct AppConfig{
     pub tts_model:String,
     pub stt_model:String,
     pub tts_voice:String,
+    pub azure_audio_url:String,
+    pub openai_api_key:String
 }
 
 
@@ -42,6 +44,10 @@ impl AppConfig{
             tts_model: env::var("TTS_MODEL").unwrap_or("MAI-Voice-2".to_string()),
             stt_model: env::var("STT_MODEL").unwrap_or("something".to_string()),
             tts_voice:env::var("DEFAULT_TTS_VOICE").unwrap_or("alloy".to_string()),
+            azure_audio_url:env::var("AZURE_AUDIO_SERVICE_URL").unwrap_or("alloy".to_string()),
+            openai_api_key:env::var("OPENAI_API_KEY").unwrap_or("alloy".to_string()),
+
+
         }
 
     }
