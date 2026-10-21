@@ -316,6 +316,99 @@
             stroke-linejoin: round;
             transform: translateX(1px);
         }
+.mic-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f1f5f9;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            outline: none;
+            flex-shrink: 0;
+            margin-right: 6px;
+        }
+
+        .mic-btn:hover:not(:disabled) {
+            transform: scale(1.06);
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        .mic-btn:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+        }
+
+        .sys-audio-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            outline: none;
+            flex-shrink: 0;
+            margin-right: 6px;
+        }
+
+        .sys-audio-btn:hover:not(:disabled) {
+            transform: scale(1.06);
+            background: rgba(255, 255, 255, 0.16);
+            color: #f1f5f9;
+        }
+
+        .sys-audio-btn.active {
+            background: #00d2ff;
+            color: #070709;
+            box-shadow: 0 0 22px rgba(0, 210, 255, 0.7);
+            animation: pulse-sys 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-sys {
+            0% { transform: scale(1); box-shadow: 0 0 12px rgba(0, 210, 255, 0.5); }
+            100% { transform: scale(1.08); box-shadow: 0 0 26px rgba(0, 210, 255, 0.9); }
+        }
+
+        .sys-audio-btn svg {
+            width: 19px;
+            height: 19px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.1;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .mic-btn.recording {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+            animation: pulse-mic 1.2s infinite alternate;
+        }
+
+        @keyframes pulse-mic {
+            0% { transform: scale(1); box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
+            100% { transform: scale(1.1); box-shadow: 0 0 28px rgba(239, 68, 68, 0.85); }
+        }
+
+        .mic-btn svg {
+            width: 19px;
+            height: 19px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.1;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
 
         /* Config Drawer / Modal */
         .config-overlay {
@@ -460,6 +553,22 @@
         <div class="input-bar">
             <input type="text" id="promptInput" placeholder="Send a message to speak..." 
                    disabled onkeydown="if(event.key === 'Enter') handleSend()">
+                                    <button id="sysAudioBtn" class="sys-audio-btn" onclick="toggleSystemAudio()" title="Capture System / Tab Audio (Music, YouTube, etc.)">
+                <svg viewBox="0 0 24 24">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                    <path d="M7 10l2 2 3-3 5 5"></path>
+                </svg>
+            </button>
+            <button id="micBtn" class="mic-btn" onclick="toggleMicrophone()" disabled title="Speak into microphone">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+            </button>
             <button id="sendBtn" class="send-btn" onclick="handleSend()" disabled title="Send">
                 <svg viewBox="0 0 24 24">
                     <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -500,6 +609,17 @@
     let currentTheme = 'pills';
     let isAudioPlaying = false;
     let isDemoActive = false;
+    let isRecordingMic = false;
+    let isCapturingSystemAudio = false;
+    let systemMediaStream = null;
+    let systemSourceNode = null;
+    let systemProcessorNode = null;
+    let systemZeroGain = null;
+    let micMediaStream = null;
+    let micSourceNode = null;
+    let micProcessorNode = null;
+    let micZeroGain = null;
+    let recordedAudioBuffers = [];
 
     function setTheme(themeName, btnEl) {
         currentTheme = themeName;
@@ -595,10 +715,10 @@
 
     // Extract or synthesize 64 frequency bins + overall vocal energy
     function getAudioSpectrum(time) {
-        const active = isAudioPlaying || isDemoActive;
+        const active = isAudioPlaying || isDemoActive || isRecordingMic || isCapturingSystemAudio;
         let sum = 0;
 
-        if (isAudioPlaying && analyser && freqData) {
+        if ((isAudioPlaying || isRecordingMic || isCapturingSystemAudio) && analyser && freqData) {
             analyser.getByteFrequencyData(freqData);
             for (let i = 0; i < 64; i++) {
                 synthFreqData[i] = freqData[i];
@@ -1117,6 +1237,7 @@
                 connectToggleBtn.innerText = 'Disconnect';
                 promptInput.disabled = false;
                 sendBtn.disabled = false;
+                if (micBtn) micBtn.disabled = false;
                 subtitle.innerText = 'Ready. Type a message below.';
                 subtitle.classList.remove('muted');
                 promptInput.focus();
@@ -1126,8 +1247,17 @@
                 if (typeof event.data === 'string') {
                     try {
                         const parsed = JSON.parse(event.data);
+                        clearTimeout(window._sttTimeout);
                         if (parsed.status === 'received') {
-                            subtitle.innerText = 'Synthesizing voice...';
+                            subtitle.innerText = 'Processing with assistant...';
+                        } else if (parsed.transcription) {
+                            subtitle.innerText = `You: “${parsed.transcription}”`;
+                        } else if (parsed.ai_response) {
+                            subtitle.innerText = `AI: “${parsed.ai_response}”`;
+                        } else if (parsed.status === 'no_speech_detected') {
+                            subtitle.innerText = 'No clear speech detected. (Make sure you speak or play audio with clear dialogue)';
+                        } else if (parsed.error) {
+                            subtitle.innerText = `Error: ${parsed.error}`;
                         }
                     } catch (_) {}
                 } else if (event.data instanceof ArrayBuffer) {
@@ -1166,9 +1296,298 @@
         connectToggleBtn.innerText = 'Connect';
         promptInput.disabled = true;
         sendBtn.disabled = true;
+        if (micBtn) micBtn.disabled = true;
         subtitle.innerText = 'Disconnected. Click above to connect.';
         subtitle.classList.add('muted');
         isAudioPlaying = false;
+    }
+
+    
+    // --- Live Microphone Recording & WAV Encoding ---
+    
+    // --- System / Tab Audio Capture (Music, YouTube, PC Audio) ---
+    async function toggleSystemAudio() {
+        if (isCapturingSystemAudio) {
+            stopSystemAudio();
+        } else {
+            await startSystemAudio();
+        }
+    }
+
+    async function startSystemAudio() {
+        ensureAudioContext();
+        try {
+            // Request system/tab audio via browser getDisplayMedia
+            systemMediaStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { width: 1, height: 1, frameRate: 1 },
+                audio: { suppressLocalAudioPlayback: false }
+            });
+
+            const audioTracks = systemMediaStream.getAudioTracks();
+            if (audioTracks.length === 0) {
+                // User forgot to check 'Share audio' in browser popup
+                systemMediaStream.getTracks().forEach(t => t.stop());
+                systemMediaStream = null;
+                subtitle.innerText = 'Tip: Be sure to check "Share audio" in the popup window!';
+                subtitle.classList.remove('muted');
+                return;
+            }
+
+            const audioTrack = audioTracks[0];
+
+            // Stop unused video track immediately
+            systemMediaStream.getVideoTracks().forEach(t => t.stop());
+
+            // Connect system audio stream directly to the visualizer's analyserNode
+            const audioOnlyStream = new MediaStream([audioTrack]);
+            systemSourceNode = audioCtx.createMediaStreamSource(audioOnlyStream);
+            systemSourceNode.connect(analyser);
+
+            // Buffer audio for optional transcription upon stopping
+            recordedAudioBuffers = [];
+            systemProcessorNode = audioCtx.createScriptProcessor(4096, 1, 1);
+            systemProcessorNode.onaudioprocess = (e) => {
+                if (!isCapturingSystemAudio) return;
+                const channelData = e.inputBuffer.getChannelData(0);
+                recordedAudioBuffers.push(new Float32Array(channelData));
+            };
+
+            systemZeroGain = audioCtx.createGain();
+            systemZeroGain.gain.value = 0;
+            systemSourceNode.connect(systemProcessorNode);
+            systemProcessorNode.connect(systemZeroGain);
+            systemZeroGain.connect(audioCtx.destination);
+
+            isCapturingSystemAudio = true;
+            const btn = document.getElementById('sysAudioBtn');
+            if (btn) btn.classList.add('active');
+
+            subtitle.innerText = 'Visualizing system audio (Music/YouTube)... Visualizer synced!';
+            subtitle.classList.remove('muted');
+
+            // Listen if user clicks Chrome's native "Stop sharing" bar
+            audioTrack.onended = () => {
+                stopSystemAudio();
+            };
+
+        } catch (err) {
+            if (err.name !== 'NotAllowedError') {
+                console.error('System audio capture error:', err);
+                subtitle.innerText = 'System audio error: ' + err.message;
+            }
+        }
+    }
+
+    function stopSystemAudio() {
+        if (!isCapturingSystemAudio) return;
+        isCapturingSystemAudio = false;
+
+        const btn = document.getElementById('sysAudioBtn');
+        if (btn) btn.classList.remove('active');
+
+        if (systemSourceNode) {
+            systemSourceNode.disconnect();
+            systemSourceNode = null;
+        }
+        if (systemProcessorNode) {
+            systemProcessorNode.disconnect();
+            systemProcessorNode = null;
+        }
+        if (systemZeroGain) {
+            systemZeroGain.disconnect();
+            systemZeroGain = null;
+        }
+        if (systemMediaStream) {
+            systemMediaStream.getTracks().forEach(t => t.stop());
+            systemMediaStream = null;
+        }
+
+        if (recordedAudioBuffers.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
+            const wavArrayBuffer = encodeWAV(recordedAudioBuffers, audioCtx.sampleRate, 16000);
+            recordedAudioBuffers = [];
+            const kbSize = (wavArrayBuffer.byteLength / 1024).toFixed(0);
+            subtitle.innerText = `Transcribing captured audio (${kbSize} KB)...`;
+            ws.send(wavArrayBuffer);
+
+            // 10s fallback safeguard
+            clearTimeout(window._sttTimeout);
+            window._sttTimeout = setTimeout(() => {
+                if (subtitle.innerText.includes('Transcribing')) {
+                    subtitle.innerText = 'Ready. Speak or send a message.';
+                }
+            }, 10000);
+        } else {
+            subtitle.innerText = 'Ready. Speak or send a message.';
+        }
+    }
+
+    async function toggleMicrophone() {
+        if (isRecordingMic) {
+            stopMicrophone();
+        } else {
+            await startMicrophone();
+        }
+    }
+
+    async function startMicrophone() {
+        ensureAudioContext();
+        try {
+            micMediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    channelCount: 1,
+                    sampleRate: 16000,
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
+            });
+
+            // 1. Live Visualizer Sync: Connect microphone to the visualizer's analyser
+            micSourceNode = audioCtx.createMediaStreamSource(micMediaStream);
+            micSourceNode.connect(analyser);
+
+            // 2. Audio Capture: ScriptProcessor collects raw PCM Float32 samples
+            recordedAudioBuffers = [];
+            micProcessorNode = audioCtx.createScriptProcessor(4096, 1, 1);
+            micProcessorNode.onaudioprocess = (e) => {
+                if (!isRecordingMic) return;
+                const channelData = e.inputBuffer.getChannelData(0);
+                recordedAudioBuffers.push(new Float32Array(channelData));
+            };
+
+            // Connect to zero-gain so audio flows through processor without creating speaker feedback
+            micZeroGain = audioCtx.createGain();
+            micZeroGain.gain.value = 0;
+            micSourceNode.connect(micProcessorNode);
+            micProcessorNode.connect(micZeroGain);
+            micZeroGain.connect(audioCtx.destination);
+
+            isRecordingMic = true;
+            const micBtn = document.getElementById('micBtn');
+            if (micBtn) micBtn.classList.add('recording');
+            subtitle.innerText = 'Listening to you... (Click mic when done)';
+            subtitle.classList.remove('muted');
+
+        } catch (err) {
+            console.error('Microphone access error:', err);
+            subtitle.innerText = 'Microphone access denied: ' + err.message;
+        }
+    }
+
+    function stopMicrophone() {
+        if (!isRecordingMic) return;
+        isRecordingMic = false;
+
+        const micBtn = document.getElementById('micBtn');
+        if (micBtn) micBtn.classList.remove('recording');
+
+        // Disconnect mic nodes
+        if (micSourceNode) {
+            micSourceNode.disconnect();
+            micSourceNode = null;
+        }
+        if (micProcessorNode) {
+            micProcessorNode.disconnect();
+            micProcessorNode = null;
+        }
+        if (micZeroGain) {
+            micZeroGain.disconnect();
+            micZeroGain = null;
+        }
+        if (micMediaStream) {
+            micMediaStream.getTracks().forEach(track => track.stop());
+            micMediaStream = null;
+        }
+
+        if (recordedAudioBuffers.length === 0) {
+            subtitle.innerText = 'Ready. Speak or send a message.';
+            return;
+        }
+
+        // Encode recorded PCM to 16kHz 16-bit Mono WAV format
+        const wavArrayBuffer = encodeWAV(recordedAudioBuffers, audioCtx.sampleRate, 16000);
+        recordedAudioBuffers = [];
+        const kbSize = (wavArrayBuffer.byteLength / 1024).toFixed(0);
+        subtitle.innerText = `Transcribing voice (${kbSize} KB)...`;
+
+        // Send binary WAV over WebSocket
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(wavArrayBuffer);
+
+            // 10s fallback safeguard
+            clearTimeout(window._sttTimeout);
+            window._sttTimeout = setTimeout(() => {
+                if (subtitle.innerText.includes('Transcribing')) {
+                    subtitle.innerText = 'Ready. Speak or send a message.';
+                }
+            }, 10000);
+        } else {
+            subtitle.innerText = 'WebSocket disconnected. Please reconnect.';
+        }
+    }
+
+    // Convert Float32Array PCM to 16kHz 16-bit Mono RIFF WAV
+    function encodeWAV(samplesArray, sourceSampleRate, targetSampleRate = 16000) {
+        let totalLength = 0;
+        for (const chunk of samplesArray) {
+            totalLength += chunk.length;
+        }
+        const merged = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of samplesArray) {
+            merged.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        // Downsample to target sample rate (16000)
+        let downsampled;
+        if (sourceSampleRate === targetSampleRate) {
+            downsampled = merged;
+        } else {
+            const ratio = sourceSampleRate / targetSampleRate;
+            const newLength = Math.round(merged.length / ratio);
+            downsampled = new Float32Array(newLength);
+            for (let i = 0; i < newLength; i++) {
+                const srcIdx = Math.min(merged.length - 1, Math.round(i * ratio));
+                downsampled[i] = merged[srcIdx];
+            }
+        }
+
+        // Convert Float32 (-1.0 to +1.0) to 16-bit signed PCM
+        const pcm16 = new Int16Array(downsampled.length);
+        for (let i = 0; i < downsampled.length; i++) {
+            const s = Math.max(-1, Math.min(1, downsampled[i]));
+            pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+
+        // Standard 44-byte RIFF WAV Header
+        const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+        const view = new DataView(buffer);
+
+        function writeString(v, off, str) {
+            for (let i = 0; i < str.length; i++) {
+                v.setUint8(off + i, str.charCodeAt(i));
+            }
+        }
+
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + pcm16.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);                         // Subchunk1Size (16 for PCM)
+        view.setUint16(20, 1, true);                          // AudioFormat (1 = PCM)
+        view.setUint16(22, 1, true);                          // NumChannels (1 = mono)
+        view.setUint32(24, targetSampleRate, true);           // SampleRate (16000)
+        view.setUint32(28, targetSampleRate * 2, true);       // ByteRate (16000 * 2)
+        view.setUint16(32, 2, true);                          // BlockAlign (2 bytes)
+        view.setUint16(34, 16, true);                         // BitsPerSample (16 bits)
+        writeString(view, 36, 'data');
+        view.setUint32(40, pcm16.length * 2, true);
+
+        // Copy 16-bit PCM samples
+        const pcmBytes = new Int16Array(buffer, 44, pcm16.length);
+        pcmBytes.set(pcm16);
+
+        return buffer;
     }
 
     function handleSend() {
