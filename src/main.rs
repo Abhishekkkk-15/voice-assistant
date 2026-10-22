@@ -28,7 +28,7 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
         (tx, rx)
     };
 
-    let mut current_voice = query.voice.unwrap_or_else(|| "en-US-JennyNeural".to_string());
+    let mut current_voice = query.voice.unwrap_or_else(|| "en-US-JennyMultilingualNeural".to_string());
     println!("🎙️ Room handler initialized with voice: {}", current_voice);
 
     let mut agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
@@ -144,15 +144,28 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
 
                                     let mut stream = agent.speech_generation(val, &current_voice).await;
                                     let mut chunk_count = 0;
+                                    let mut total_bytes = 0;
                                     while let Some(chunk) = stream.next().await {
                                         if let Ok(c) = chunk {
-                                            chunk_count += 1;
-                                            if session.binary(c).await.is_err() {
-                                                break;
+                                            if !c.is_empty() {
+                                                chunk_count += 1;
+                                                total_bytes += c.len();
+                                                if session.binary(c).await.is_err() {
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
-                                    println!("🔊 Sent {} TTS audio chunks using voice [{}] to client", chunk_count, current_voice);
+                                    if total_bytes == 0 {
+                                        println!("⚠️ TTS returned 0 audio bytes for voice [{}] (language mismatch?)", current_voice);
+                                        let warn_json = serde_json::json!({
+                                            "status": "tts_empty",
+                                            "warning": format!("Voice [{}] cannot synthesize speech for this language/text. Please switch to a Multilingual or Hindi voice.", current_voice)
+                                        }).to_string();
+                                        let _ = session.text(warn_json).await;
+                                    } else {
+                                        println!("🔊 Sent {} TTS audio chunks ({:.1} KB) using voice [{}] to client", chunk_count, total_bytes as f64 / 1024.0, current_voice);
+                                    }
                                 }
                             }
                             Err(e) => {

@@ -595,11 +595,13 @@
             <!-- Voice Picker Dropdown -->
             <div class="voice-picker-wrapper" title="Choose Assistant Voice">
                 <select id="voiceSelect" class="voice-select" onchange="handleVoiceChange()">
-                    <option value="en-US-JennyNeural" selected>Jenny (Expressive ♀)</option>
+                    <option value="en-US-JennyMultilingualNeural" selected>Jenny (Multilingual ♀)</option>
+                    <option value="en-US-AvaMultilingualNeural">Ava (Multilingual ♀)</option>
+                    <option value="hi-IN-SwaraNeural">Swara (Hindi ♀)</option>
+                    <option value="hi-IN-MadhurNeural">Madhur (Hindi ♂)</option>
                     <option value="en-US-GuyNeural">Guy (Expressive ♂)</option>
                     <option value="en-US-AriaNeural">Aria (Conversational ♀)</option>
                     <option value="en-US-DavisNeural">Davis (Casual ♂)</option>
-                    <option value="en-IN-NeerjaNeural">Neerja (Warm Indian ♀)</option>
                     <option value="en-US-Ethan:MAI-Voice-2">Ethan (Natural ♂)</option>
                 </select>
             </div>
@@ -1347,6 +1349,8 @@
                                 badge = `<span class="emotion-badge ${parsed.emotion.toLowerCase()}">${emoji} ${parsed.emotion}</span> `;
                             }
                             subtitle.innerHTML = `${badge}“${escapeHtml(parsed.ai_response)}”`;
+                        } else if (parsed.status === 'tts_empty') {
+                            subtitle.innerText = `⚠️ ${parsed.warning}`;
                         } else if (parsed.status === 'no_speech_detected') {
                             subtitle.innerText = 'No clear speech detected. (Make sure you speak or play audio with clear dialogue)';
                         } else if (parsed.error) {
@@ -1765,10 +1769,26 @@
     function playStreamedAudio(chunks) {
         if (!chunks || chunks.length === 0) return;
 
+        let totalLength = 0;
+        for (const c of chunks) {
+            totalLength += (c.byteLength || c.size || 0);
+        }
+
+        if (totalLength === 0) {
+            console.warn('Received empty (0-byte) audio payload from TTS.');
+            subtitle.innerText = '⚠️ Selected voice cannot pronounce this text/language. Please select a Multilingual or Hindi voice!';
+            return;
+        }
+
         ensureAudioContext();
+
+        if (persistentAudio._currentUrl) {
+            URL.revokeObjectURL(persistentAudio._currentUrl);
+        }
 
         const audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
         const audioUrl = URL.createObjectURL(audioBlob);
+        persistentAudio._currentUrl = audioUrl;
 
         persistentAudio.src = audioUrl;
         isAudioPlaying = true;
