@@ -251,6 +251,40 @@
             pointer-events: auto;
         }
 
+        .sfx-toggle-section {
+            padding-top: 4px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .sfx-toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            color: #94a3b8;
+            font-size: 0.74rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.22s ease;
+            pointer-events: auto;
+        }
+
+        .sfx-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #f1f5f9;
+        }
+
+        .sfx-toggle-btn.active {
+            background: rgba(6, 182, 212, 0.12);
+            border-color: rgba(6, 182, 212, 0.35);
+            color: #67e8f9;
+        }
+
         /* Theme Selector Bar */
         .theme-selector {
             display: flex;
@@ -1218,6 +1252,14 @@
                             <span>⚡ Force Field</span>
                         </button>
                     </div>
+
+                    <!-- Sci-Fi Haptic Audio Toggle -->
+                    <div class="dropdown-section sfx-toggle-section">
+                        <button id="sfxToggleBtn" class="sfx-toggle-btn active" onclick="toggleSfxMute()" title="Toggle Synthesized Sci-Fi UI Sounds">
+                            <span id="sfxIcon">🔊</span>
+                            <span id="sfxLabel">Sci-Fi Audio: Active</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1461,6 +1503,7 @@
     }
 
     function randomizeForceField() {
+        playRandomizeSound();
         const btn = document.getElementById('dockRandomBtn');
         if (btn) {
             btn.classList.add('spin');
@@ -1522,6 +1565,9 @@
             speed: 6.2,
             strength: 1.0
         });
+
+        // Trigger sub-bass gravitational hum
+        playShockwaveHum();
     }, { passive: true });
 
     window.addEventListener('resize', () => {
@@ -1642,6 +1688,191 @@
     const canvas = document.getElementById('ledCanvas');
     const ctx = canvas.getContext('2d');
 
+    // ============================================================================
+    // Synthesized Sci-Fi UI Audio Feedback Engine (Zero-Asset Web Audio)
+    // ============================================================================
+    let sfxAudioCtx = null;
+    let sfxMasterGain = null;
+    let sfxMuted = false;
+
+    function getSfxContext() {
+        if (!sfxAudioCtx) {
+            const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+            sfxAudioCtx = new AudioCtxClass();
+        }
+        if (sfxAudioCtx.state === 'suspended') {
+            sfxAudioCtx.resume();
+        }
+        return sfxAudioCtx;
+    }
+
+    function getSfxMaster() {
+        const ctx = getSfxContext();
+        if (!sfxMasterGain) {
+            sfxMasterGain = ctx.createGain();
+            sfxMasterGain.gain.setValueAtTime(0.22, ctx.currentTime);
+            sfxMasterGain.connect(ctx.destination);
+        }
+        return { ctx, master: sfxMasterGain };
+    }
+
+    // 1. Magnetic Click-Shimmer Sound (Three-Dot Menu & Dropdown)
+    function playMenuClickSound() {
+        if (sfxMuted) return;
+        try {
+            const { ctx, master } = getSfxMaster();
+            const now = ctx.currentTime;
+
+            // Crisp metallic chirp sweep
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(2100, now);
+            osc1.frequency.exponentialRampToValueAtTime(3600, now + 0.032);
+
+            gain1.gain.setValueAtTime(0.28, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.038);
+
+            osc1.connect(gain1);
+            gain1.connect(master);
+            osc1.start(now);
+            osc1.stop(now + 0.042);
+
+            // High-frequency magnetic shimmer tail
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            const filter2 = ctx.createBiquadFilter();
+
+            filter2.type = 'highpass';
+            filter2.frequency.setValueAtTime(2800, now);
+
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(4800, now);
+            osc2.frequency.exponentialRampToValueAtTime(5600, now + 0.075);
+
+            gain2.gain.setValueAtTime(0.12, now);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
+
+            osc2.connect(filter2);
+            filter2.connect(gain2);
+            gain2.connect(master);
+            osc2.start(now);
+            osc2.stop(now + 0.09);
+        } catch (_) {}
+    }
+
+    // 2. Sub-Bass Gravitational Shockwave Hum (Pointer Click Shockwaves)
+    function playShockwaveHum() {
+        if (sfxMuted) return;
+        try {
+            const { ctx, master } = getSfxMaster();
+            const now = ctx.currentTime;
+
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(140, now);
+            filter.frequency.exponentialRampToValueAtTime(50, now + 0.28);
+
+            osc.type = 'sine';
+            // Sweeps downward smoothly from 96Hz into deep sub-bass 34Hz
+            osc.frequency.setValueAtTime(96, now);
+            osc.frequency.exponentialRampToValueAtTime(34, now + 0.26);
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.38, now + 0.018);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(master);
+
+            osc.start(now);
+            osc.stop(now + 0.29);
+        } catch (_) {}
+    }
+
+    // 3. Gentle Harmonic Chord Sweep (Visualizer Theme Switcher)
+    function playThemeChordSweep(themeName) {
+        if (sfxMuted) return;
+        try {
+            const { ctx, master } = getSfxMaster();
+            const now = ctx.currentTime;
+
+            // Signature chords per theme
+            const chords = {
+                pills:   [523.25, 659.25, 783.99, 987.77],   // C Major 9th chime (Cyan)
+                orb:     [440.00, 523.25, 659.25, 880.00],   // Ethereal A Minor triad (Purple)
+                ring:    [587.33, 880.00, 1174.66, 1760.00], // Cyberpunk fifths (Emerald)
+                aurora:  [587.33, 739.99, 880.00, 1046.50], // Crystalline Lydian sweep (Teal)
+                quantum: [466.16, 554.37, 698.46, 932.33]   // Futuristic Suspended 4th (Coral)
+            };
+
+            const freqs = chords[themeName] || chords.pills;
+            const chordFilter = ctx.createBiquadFilter();
+            chordFilter.type = 'lowpass';
+            chordFilter.frequency.setValueAtTime(3400, now);
+            chordFilter.frequency.exponentialRampToValueAtTime(900, now + 0.38);
+            chordFilter.connect(master);
+
+            freqs.forEach((freq, idx) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const noteTime = now + (idx * 0.024); // Arpeggiated celestial ripple
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq * 0.985, noteTime);
+                osc.frequency.exponentialRampToValueAtTime(freq, noteTime + 0.04);
+
+                gain.gain.setValueAtTime(0.0001, noteTime);
+                gain.gain.linearRampToValueAtTime(0.18 / Math.sqrt(freqs.length), noteTime + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 0.34);
+
+                osc.connect(gain);
+                gain.connect(chordFilter);
+
+                osc.start(noteTime);
+                osc.stop(noteTime + 0.36);
+            });
+        } catch (_) {}
+    }
+
+    // 4. Force Field Parameter Randomize Sparkle
+    function playRandomizeSound() {
+        if (sfxMuted) return;
+        try {
+            const { ctx, master } = getSfxMaster();
+            const now = ctx.currentTime;
+            const notes = [784, 988, 1318, 1760];
+            notes.forEach((freq, idx) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const t = now + idx * 0.028;
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, t);
+                gain.gain.setValueAtTime(0.12, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+                osc.connect(gain);
+                gain.connect(master);
+                osc.start(t);
+                osc.stop(t + 0.09);
+            });
+        } catch (_) {}
+    }
+
+    function toggleSfxMute() {
+        sfxMuted = !sfxMuted;
+        const btn = document.getElementById('sfxToggleBtn');
+        const label = document.getElementById('sfxLabel');
+        const icon = document.getElementById('sfxIcon');
+        if (btn) btn.classList.toggle('active', !sfxMuted);
+        if (label) label.innerText = sfxMuted ? 'Sci-Fi Audio: Muted' : 'Sci-Fi Audio: Active';
+        if (icon) icon.innerText = sfxMuted ? '🔇' : '🔊';
+        if (!sfxMuted) playMenuClickSound();
+    }
+
     // --- State & Theme Management ---
     let currentTheme = 'pills';
     let isAudioPlaying = false;
@@ -1662,6 +1893,9 @@
         currentTheme = themeName;
         document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
         if (btnEl) btnEl.classList.add('active');
+
+        // Play gentle harmonic chord sweep for this theme
+        playThemeChordSweep(themeName);
 
         // Dynamically sync Force Field hue with the chosen visualizer theme
         const themeHues = { pills: 195, orb: 275, ring: 145, aurora: 175, quantum: 350 };
@@ -1752,6 +1986,11 @@
             audioSourceNode.connect(audioCtx.destination);
 
             persistentAudio.onended = () => {
+                isAudioPlaying = false;
+                // Voice playback stopped: wait exactly 2 seconds before vanishing
+                scheduleAiVoiceVanish(2000);
+            };
+            persistentAudio.onerror = () => {
                 isAudioPlaying = false;
                 scheduleAiVoiceVanish(2000);
             };
@@ -2255,30 +2494,38 @@
     // --- AI Spoken Voice Response Floating Display (Left Middle Screen, Auto-Vanishing) ---
     let aiVoiceVanishTimer = null;
 
+    function clearAiVoiceVanishTimer() {
+        if (aiVoiceVanishTimer) {
+            clearTimeout(aiVoiceVanishTimer);
+            aiVoiceVanishTimer = null;
+        }
+    }
+
     function showAiVoiceResponse(text) {
         const display = document.getElementById('aiSpeechDisplay');
         const content = document.getElementById('aiSpeechContent');
         if (!display || !content) return;
 
-        if (aiVoiceVanishTimer) {
-            clearTimeout(aiVoiceVanishTimer);
-            aiVoiceVanishTimer = null;
-        }
+        // Clear any previous vanish timer immediately when a new message displays
+        clearAiVoiceVanishTimer();
 
         content.innerHTML = `“${escapeHtml(text)}”`;
 
         display.classList.remove('vanishing');
         display.classList.add('visible');
 
-        // Fallback: if voice audio does not start, auto-vanish in 6s
-        scheduleAiVoiceVanish(6000);
+        // Do NOT vanish while voice is generating or playing!
+        // Safety net only (45s) in case network drops or audio fails to arrive completely
+        scheduleAiVoiceVanish(45000);
     }
 
     function scheduleAiVoiceVanish(delayMs = 2000) {
-        if (aiVoiceVanishTimer) {
-            clearTimeout(aiVoiceVanishTimer);
-        }
+        clearAiVoiceVanishTimer();
         aiVoiceVanishTimer = setTimeout(() => {
+            // STRICT RULE: Never vanish if the voice is actively speaking or demo is running!
+            if (isAudioPlaying || isDemoActive) {
+                return;
+            }
             const display = document.getElementById('aiSpeechDisplay');
             if (display && display.classList.contains('visible')) {
                 display.classList.remove('visible');
@@ -2308,13 +2555,17 @@
         if (!menu) return;
         const isOpen = menu.classList.toggle('open');
         if (btn) btn.classList.toggle('active', isOpen);
+        playMenuClickSound();
     }
 
     function closeHeaderMenu() {
         const menu = document.getElementById('headerDropdown');
         const btn = document.getElementById('menuToggleBtn');
-        if (menu) menu.classList.remove('open');
-        if (btn) btn.classList.remove('active');
+        if (menu && menu.classList.contains('open')) {
+            menu.classList.remove('open');
+            if (btn) btn.classList.remove('active');
+            playMenuClickSound();
+        }
     }
 
     // Close dropdown on click outside or Escape
@@ -2398,6 +2649,8 @@
                         }
                     } catch (_) {}
                 } else if (event.data instanceof ArrayBuffer) {
+                    // Audio chunks streaming in from server: ensure vanish timer is cleared
+                    clearAiVoiceVanishTimer();
                     incomingChunks.push(event.data);
                     clearTimeout(streamDebounce);
                     streamDebounce = setTimeout(() => {
@@ -2817,10 +3070,12 @@
         if (totalLength === 0) {
             console.warn('Received empty (0-byte) audio payload from TTS.');
             subtitle.innerText = '⚠️ Selected voice cannot pronounce this text/language. Please select a Multilingual or Hindi voice!';
+            scheduleAiVoiceVanish(2000);
             return;
         }
 
         ensureAudioContext();
+        clearAiVoiceVanishTimer();
 
         if (persistentAudio._currentUrl) {
             URL.revokeObjectURL(persistentAudio._currentUrl);
