@@ -148,6 +148,199 @@
             box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
         }
 
+        /* Force Field HUD & Control Styles */
+        .force-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 13px;
+            border-radius: 999px;
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: #67e8f9;
+            font-size: 0.76rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .force-btn:hover {
+            background: rgba(6, 182, 212, 0.2);
+            border-color: rgba(6, 182, 212, 0.5);
+            color: #a5f3fc;
+        }
+
+        .force-btn.active {
+            background: rgba(6, 182, 212, 0.3);
+            border-color: #22d3ee;
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.45);
+        }
+
+        .field-hud-badge {
+            position: fixed;
+            top: 24px;
+            right: 32px;
+            z-index: 25;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: rgba(255, 255, 255, 0.45);
+            letter-spacing: 0.04em;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .force-field-dock {
+            position: fixed;
+            bottom: 96px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            z-index: 30;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 95vw;
+        }
+
+        .force-field-dock.visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .dock-panel {
+            background: rgba(12, 12, 18, 0.78);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 10px 18px;
+            border-radius: 20px;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65), 0 0 24px rgba(6, 182, 212, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .dock-control {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 86px;
+        }
+
+        .dock-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 600;
+        }
+
+        .dock-label b {
+            color: #f1f5f9;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.7rem;
+        }
+
+        .dock-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            outline: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .dock-slider:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .dock-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+            transition: transform 0.15s ease;
+        }
+
+        .dock-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        .dock-divider {
+            width: 1px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .dock-random-btn {
+            padding: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .dock-random-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.35);
+            color: #ffffff;
+        }
+
+        .dock-random-btn.spin svg {
+            animation: spinOnce 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes spinOnce {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .dock-close-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: color 0.2s;
+            flex-shrink: 0;
+        }
+
+        .dock-close-btn:hover {
+            color: #ffffff;
+        }
+
         .status-pill {
             display: flex;
             align-items: center;
@@ -604,6 +797,26 @@
             .voice-picker-wrapper, .demo-btn, .status-pill {
                 flex-shrink: 0;
             }
+            .force-btn {
+                flex-shrink: 0;
+            }
+            .field-hud-badge {
+                top: 14px;
+                right: 14px;
+                font-size: 0.65rem;
+                padding: 4px 10px;
+            }
+            .force-field-dock {
+                bottom: 84px;
+                width: 95vw;
+            }
+            .dock-panel {
+                padding: 8px 14px;
+                gap: 10px;
+            }
+            .dock-control {
+                min-width: 76px;
+            }
             main {
                 padding: 10px 14px;
             }
@@ -653,6 +866,10 @@
                 font-size: 0.72rem;
                 padding: 5px 10px;
             }
+            .force-btn {
+                font-size: 0.72rem;
+                padding: 5px 10px;
+            }
             .status-pill {
                 font-size: 0.74rem;
                 padding: 5px 10px;
@@ -679,6 +896,11 @@
 <body>
     <!-- Interactive Magnetic Dot Matrix Background -->
     <canvas id="bgDotsCanvas"></canvas>
+
+    <!-- Real-time Force Field HUD Badge (FPS & Points Counter) -->
+    <div id="fieldHudBadge" class="field-hud-badge" title="Force Field Real-time Stats">
+        <span id="fieldFpsLabel">FPS: 60</span> • <span id="fieldPointsLabel">POINTS: --</span>
+    </div>
 
     <header>
         <div class="brand">
@@ -714,6 +936,14 @@
                 <span>✦ Sim Voice</span>
             </button>
 
+            <!-- Force Field Controls Toggle Button -->
+            <button id="forceFieldToggleBtn" class="force-btn" onclick="toggleForceFieldDock()" title="Toggle Force Field Physics Controls">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <span>⚡ Force Field</span>
+            </button>
+
             <button id="statusPill" class="status-pill" onclick="openConfig()">
                 <span class="status-dot"></span>
                 <span id="statusLabel">Disconnected</span>
@@ -729,6 +959,71 @@
             Click "Disconnected" to connect or "✦ Sim Voice" to preview themes
         </div>
     </main>
+
+    <!-- Floating Force Field Controls Dock (from ForceField App.tsx) -->
+    <div id="forceFieldDock" class="force-field-dock" aria-label="Force Field Parameters">
+        <div class="dock-panel">
+            <div class="dock-control">
+                <div class="dock-label">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        Hue
+                    </span>
+                    <b id="hueVal">210°</b>
+                </div>
+                <input type="range" id="fieldHue" min="0" max="360" value="210" oninput="updateFieldParam('hue', this.value)" class="dock-slider">
+            </div>
+
+            <div class="dock-divider"></div>
+
+            <div class="dock-control">
+                <div class="dock-label">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                        Radius
+                    </span>
+                    <b id="radiusVal">150px</b>
+                </div>
+                <input type="range" id="fieldRadius" min="50" max="320" value="150" oninput="updateFieldParam('magnifierRadius', this.value)" class="dock-slider">
+            </div>
+
+            <div class="dock-divider"></div>
+
+            <div class="dock-control">
+                <div class="dock-label">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        Force
+                    </span>
+                    <b id="forceVal">14</b>
+                </div>
+                <input type="range" id="fieldForce" min="0" max="30" value="14" oninput="updateFieldParam('forceStrength', this.value)" class="dock-slider">
+            </div>
+
+            <div class="dock-divider"></div>
+
+            <div class="dock-control">
+                <div class="dock-label">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        Spacing
+                    </span>
+                    <b id="spacingVal">20px</b>
+                </div>
+                <input type="range" id="fieldSpacing" min="12" max="36" value="20" oninput="updateFieldParam('spacing', this.value)" class="dock-slider">
+            </div>
+
+            <button id="dockRandomBtn" class="dock-random-btn" onclick="randomizeForceField()" title="Randomize Parameters">
+                <svg id="randomIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+            </button>
+
+            <button class="dock-close-btn" onclick="toggleForceFieldDock(false)" title="Hide Dock">✕</button>
+        </div>
+    </div>
 
     <footer>
         <div class="input-bar">
@@ -784,28 +1079,48 @@
 
 <script>
     // ============================================================================
-    // Interactive Background Dot Matrix with Magnetic Cursor & Shockwave Ripples
+    // ForceFieldBackground Engine (adapted from p5 / React Component)
     // ============================================================================
     const bgCanvas = document.getElementById('bgDotsCanvas');
     const bgCtx = bgCanvas ? bgCanvas.getContext('2d') : null;
 
-    let bgDots = [];
+    // Configurable Force Field parameters matching Component.tsx & App.tsx
+    const forceFieldParams = {
+        hue: 210,              // Base hue (0-360)
+        saturation: 100,       // Saturation (0-100)
+        spacing: 20,           // Grid spacing in px
+        minStroke: 1.4,        // Min particle radius
+        maxStroke: 5.5,        // Max particle radius under magnifier
+        forceStrength: 14,     // Repulsion force magnitude (0-30)
+        magnifierRadius: 150,  // Cursor influence radius (50-320)
+        friction: 0.88,        // Movement friction (0.5 - 0.98)
+        restoreSpeed: 0.065,   // Spring return speed (0.01 - 0.15)
+        magnifierEnabled: true
+    };
+
+    let forceFieldDots = [];
     let bgWidth = 0;
     let bgHeight = 0;
-    const BG_DOT_SPACING = 24; // Grid spacing in px
-    const BG_MOUSE_RADIUS = 135; // Cursor influence radius in px
 
-    const bgMouse = {
+    // Magnifier center with inertia lerping (matches p5 lerp in Component.tsx)
+    const magnifier = {
         x: -9999,
         y: -9999,
         targetX: -9999,
         targetY: -9999,
-        active: false
+        active: false,
+        inertia: 0.18
     };
 
     const ripples = []; // Click & tap shockwaves
 
-    function initBackgroundDots() {
+    // FPS & Performance stats tracking
+    let lastFpsStamp = performance.now();
+    let frameCounter = 0;
+    let currentFps = 60;
+    let fpsAccumulator = 0;
+
+    function initForceField() {
         if (!bgCanvas || !bgCtx) return;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         bgWidth = window.innerWidth;
@@ -815,72 +1130,152 @@
         bgCtx.resetTransform();
         bgCtx.scale(dpr, dpr);
 
-        bgDots = [];
-        const cols = Math.ceil(bgWidth / BG_DOT_SPACING) + 1;
-        const rows = Math.ceil(bgHeight / BG_DOT_SPACING) + 1;
-        const offsetX = (bgWidth - (cols - 1) * BG_DOT_SPACING) / 2;
-        const offsetY = (bgHeight - (rows - 1) * BG_DOT_SPACING) / 2;
+        forceFieldDots = [];
+        const safeSpacing = Math.max(12, forceFieldParams.spacing);
+        const cols = Math.ceil(bgWidth / safeSpacing) + 1;
+        const rows = Math.ceil(bgHeight / safeSpacing) + 1;
+        const offsetX = (bgWidth - (cols - 1) * safeSpacing) / 2;
+        const offsetY = (bgHeight - (rows - 1) * safeSpacing) / 2;
 
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
-                const ox = offsetX + c * BG_DOT_SPACING;
-                const oy = offsetY + r * BG_DOT_SPACING;
-                bgDots.push({
+                const ox = offsetX + c * safeSpacing;
+                const oy = offsetY + r * safeSpacing;
+                forceFieldDots.push({
                     ox,
                     oy,
                     x: ox,
                     y: oy,
                     vx: 0,
                     vy: 0,
-                    radius: 1.15,
-                    baseRadius: 1.15,
-                    alpha: 0.12,
-                    baseAlpha: 0.12
+                    radius: forceFieldParams.minStroke,
+                    baseAlpha: 0.14,
+                    alpha: 0.14
                 });
             }
         }
+
+        const pointsBadge = document.getElementById('fieldPointsLabel');
+        if (pointsBadge) {
+            pointsBadge.innerText = `POINTS: ${forceFieldDots.length}`;
+        }
     }
 
-    // Pointer events for mouse & touch
+    // Force Field UI controls handlers
+    function updateFieldParam(key, val) {
+        val = parseFloat(val);
+        forceFieldParams[key] = val;
+
+        const valMap = {
+            hue: { id: 'hueVal', suffix: '°' },
+            magnifierRadius: { id: 'radiusVal', suffix: 'px' },
+            forceStrength: { id: 'forceVal', suffix: '' },
+            spacing: { id: 'spacingVal', suffix: 'px' }
+        };
+
+        if (valMap[key]) {
+            const el = document.getElementById(valMap[key].id);
+            if (el) el.innerText = `${Math.round(val)}${valMap[key].suffix}`;
+        }
+
+        if (key === 'spacing') {
+            initForceField();
+        }
+    }
+
+    function randomizeForceField() {
+        const btn = document.getElementById('dockRandomBtn');
+        if (btn) {
+            btn.classList.add('spin');
+            setTimeout(() => btn.classList.remove('spin'), 600);
+        }
+
+        const newHue = Math.floor(Math.random() * 360);
+        const newRadius = Math.floor(Math.random() * 160 + 90);
+        const newForce = Math.floor(Math.random() * 18 + 8);
+        const newSpacing = Math.floor(Math.random() * 14 + 14);
+
+        updateFieldParam('hue', newHue);
+        updateFieldParam('magnifierRadius', newRadius);
+        updateFieldParam('forceStrength', newForce);
+        updateFieldParam('spacing', newSpacing);
+
+        const hueInput = document.getElementById('fieldHue');
+        if (hueInput) hueInput.value = newHue;
+        const radInput = document.getElementById('fieldRadius');
+        if (radInput) radInput.value = newRadius;
+        const forceInput = document.getElementById('fieldForce');
+        if (forceInput) forceInput.value = newForce;
+        const spacingInput = document.getElementById('fieldSpacing');
+        if (spacingInput) spacingInput.value = newSpacing;
+    }
+
+    function toggleForceFieldDock(forceState) {
+        const dock = document.getElementById('forceFieldDock');
+        const btn = document.getElementById('forceFieldToggleBtn');
+        if (!dock) return;
+
+        const isCurrentlyOpen = dock.classList.contains('visible');
+        const shouldOpen = (forceState !== undefined) ? forceState : !isCurrentlyOpen;
+
+        dock.classList.toggle('visible', shouldOpen);
+        if (btn) btn.classList.toggle('active', shouldOpen);
+    }
+
+    // Pointer listeners for mouse & touch
     window.addEventListener('pointermove', (e) => {
-        bgMouse.targetX = e.clientX;
-        bgMouse.targetY = e.clientY;
-        bgMouse.active = true;
+        magnifier.targetX = e.clientX;
+        magnifier.targetY = e.clientY;
+        magnifier.active = true;
     }, { passive: true });
 
     window.addEventListener('pointerleave', () => {
-        bgMouse.targetX = -9999;
-        bgMouse.targetY = -9999;
-        bgMouse.active = false;
+        magnifier.targetX = -9999;
+        magnifier.targetY = -9999;
+        magnifier.active = false;
     });
 
     window.addEventListener('pointerdown', (e) => {
-        // Shockwave ripple on click/tap
+        // Shockwave ripple impulse on click/tap
         ripples.push({
             x: e.clientX,
             y: e.clientY,
             radius: 0,
             maxRadius: Math.min(window.innerWidth, window.innerHeight) * 0.45,
-            speed: 5.5,
+            speed: 6.2,
             strength: 1.0
         });
     }, { passive: true });
 
     window.addEventListener('resize', () => {
-        initBackgroundDots();
+        initForceField();
     });
 
-    function renderBackgroundDots() {
+    function renderForceField() {
         if (!bgCtx) return;
         bgCtx.clearRect(0, 0, bgWidth, bgHeight);
 
-        // Interpolate mouse coordinates smoothly
-        if (bgMouse.active) {
-            bgMouse.x += (bgMouse.targetX - bgMouse.x) * 0.22;
-            bgMouse.y += (bgMouse.targetY - bgMouse.y) * 0.22;
+        // Smooth inertial tracking for magnifier center
+        if (magnifier.active) {
+            magnifier.x += (magnifier.targetX - magnifier.x) * magnifier.inertia;
+            magnifier.y += (magnifier.targetY - magnifier.y) * magnifier.inertia;
         } else {
-            bgMouse.x = -9999;
-            bgMouse.y = -9999;
+            magnifier.x = -9999;
+            magnifier.y = -9999;
+        }
+
+        // FPS counter calculation
+        const now = performance.now();
+        const delta = now - lastFpsStamp;
+        lastFpsStamp = now;
+        frameCounter++;
+        fpsAccumulator += delta;
+        if (fpsAccumulator >= 450) {
+            currentFps = Math.round((frameCounter * 1000) / fpsAccumulator);
+            frameCounter = 0;
+            fpsAccumulator = 0;
+            const fpsEl = document.getElementById('fieldFpsLabel');
+            if (fpsEl) fpsEl.innerText = `FPS: ${currentFps}`;
         }
 
         // Update expanding shockwaves
@@ -893,85 +1288,79 @@
             }
         }
 
-        // Theme accent color for proximity lighting
-        let accentR = 0, accentG = 210, accentB = 255; // Default cyan
-        if (currentTheme === 'orb') { accentR = 168; accentG = 85; accentB = 247; }
-        else if (currentTheme === 'ring') { accentR = 0; accentG = 230; accentB = 118; }
-        else if (currentTheme === 'aurora') { accentR = 0; accentG = 242; accentB = 254; }
-        else if (currentTheme === 'quantum') { accentR = 255; accentG = 77; accentB = 77; }
+        const { hue, saturation, forceStrength, magnifierRadius, friction, restoreSpeed, minStroke, maxStroke, magnifierEnabled } = forceFieldParams;
+        const safeRadius = Math.max(10, magnifierRadius);
+        const audioPulse = (typeof smoothEnergy !== 'undefined' ? smoothEnergy : 0) * 0.9;
 
-        // Audio energy breathing modulation
-        const audioPulse = (typeof smoothEnergy !== 'undefined' ? smoothEnergy : 0) * 0.8;
+        for (let i = 0; i < forceFieldDots.length; i++) {
+            const pt = forceFieldDots[i];
 
-        for (let i = 0; i < bgDots.length; i++) {
-            const dot = bgDots[i];
+            // 1. Force Field cursor repulsion
+            let d = 99999;
+            if (magnifierEnabled && magnifier.active) {
+                const dx = pt.x - magnifier.x;
+                const dy = pt.y - magnifier.y;
+                d = Math.hypot(dx, dy);
 
-            // 1. Mouse magnetic repel & illumination
-            const dx = dot.x - bgMouse.x;
-            const dy = dot.y - bgMouse.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            let targetAlpha = dot.baseAlpha + audioPulse * 0.22;
-            let targetRadius = dot.baseRadius + audioPulse * 0.7;
-            let curR = 255, curG = 255, curB = 255;
-
-            if (dist < BG_MOUSE_RADIUS) {
-                const norm = 1 - (dist / BG_MOUSE_RADIUS);
-                const force = Math.pow(norm, 1.8) * 16;
-                const angle = Math.atan2(dy, dx);
-
-                dot.vx += Math.cos(angle) * force * 0.42;
-                dot.vy += Math.sin(angle) * force * 0.42;
-
-                targetAlpha = Math.min(0.95, dot.baseAlpha + norm * 0.82);
-                targetRadius = dot.baseRadius + norm * 2.2;
-
-                curR = Math.round(255 + (accentR - 255) * norm);
-                curG = Math.round(255 + (accentG - 255) * norm);
-                curB = Math.round(255 + (accentB - 255) * norm);
-            }
-
-            // 2. Shockwave ripples
-            for (let j = 0; j < ripples.length; j++) {
-                const rip = ripples[j];
-                const rdx = dot.x - rip.x;
-                const rdy = dot.y - rip.y;
-                const rdist = Math.sqrt(rdx * rdx + rdy * rdy);
-                const diff = Math.abs(rdist - rip.radius);
-                if (diff < 35) {
-                    const waveIntensity = (1 - diff / 35) * rip.strength;
-                    const rAngle = Math.atan2(rdy, rdx);
-                    dot.vx += Math.cos(rAngle) * waveIntensity * 3.2;
-                    dot.vy += Math.sin(rAngle) * waveIntensity * 3.2;
-                    targetAlpha = Math.max(targetAlpha, waveIntensity * 0.9);
-                    targetRadius = Math.max(targetRadius, dot.baseRadius + waveIntensity * 2.2);
-                    curR = accentR; curG = accentG; curB = accentB;
+                if (d < safeRadius) {
+                    const invD = 1 / Math.max(1, d);
+                    const dirX = dx * invD;
+                    const dirY = dy * invD;
+                    const force = (forceStrength / Math.max(8, d)) * 14;
+                    pt.vx += dirX * force;
+                    pt.vy += dirY * force;
                 }
             }
 
-            // 3. Spring physics back to home (ox, oy)
-            const homeDx = dot.ox - dot.x;
-            const homeDy = dot.oy - dot.y;
-            dot.vx += homeDx * 0.085;
-            dot.vy += homeDy * 0.085;
-            dot.vx *= 0.82; // damping friction
-            dot.vy *= 0.82;
+            // 2. Click shockwaves
+            for (let j = 0; j < ripples.length; j++) {
+                const rip = ripples[j];
+                const rdx = pt.x - rip.x;
+                const rdy = pt.y - rip.y;
+                const rdist = Math.hypot(rdx, rdy);
+                const diff = Math.abs(rdist - rip.radius);
+                if (diff < 36) {
+                    const waveIntensity = (1 - diff / 36) * rip.strength;
+                    const rInv = 1 / Math.max(1, rdist);
+                    pt.vx += rdx * rInv * waveIntensity * 6.5;
+                    pt.vy += rdy * rInv * waveIntensity * 6.5;
+                }
+            }
 
-            dot.x += dot.vx;
-            dot.y += dot.vy;
+            // 3. Friction & Spring restoration (Hooke's law)
+            pt.vx *= friction;
+            pt.vy *= friction;
+            pt.vx += (pt.ox - pt.x) * restoreSpeed;
+            pt.vy += (pt.oy - pt.y) * restoreSpeed;
 
-            dot.alpha += (targetAlpha - dot.alpha) * 0.16;
-            dot.radius += (targetRadius - dot.radius) * 0.18;
+            pt.x += pt.vx;
+            pt.y += pt.vy;
 
-            // Render dot
+            // 4. Magnifier lens effect & HSL lighting
+            let targetRadius = minStroke + audioPulse * 0.8;
+            let targetAlpha = pt.baseAlpha + audioPulse * 0.28;
+            let lightness = 65;
+
+            if (d < safeRadius) {
+                const norm = 1 - (d / safeRadius);
+                const magFactor = 1 + norm * 1.8; // Up to 2.8x center magnification
+                targetRadius = Math.min(maxStroke, minStroke * magFactor + audioPulse * 1.5);
+                targetAlpha = Math.min(0.96, pt.baseAlpha + norm * 0.82);
+                lightness = Math.round(52 + norm * 38);
+            }
+
+            pt.radius += (targetRadius - pt.radius) * 0.22;
+            pt.alpha += (targetAlpha - pt.alpha) * 0.22;
+
+            // Render particle
             bgCtx.beginPath();
-            bgCtx.arc(dot.x, dot.y, Math.max(0.4, dot.radius), 0, Math.PI * 2);
-            bgCtx.fillStyle = `rgba(${curR}, ${curG}, ${curB}, ${dot.alpha})`;
+            bgCtx.arc(pt.x, pt.y, Math.max(0.5, pt.radius), 0, Math.PI * 2);
+            bgCtx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${pt.alpha})`;
             bgCtx.fill();
         }
     }
 
-    initBackgroundDots();
+    initForceField();
 
     const canvas = document.getElementById('ledCanvas');
     const ctx = canvas.getContext('2d');
@@ -996,6 +1385,14 @@
         currentTheme = themeName;
         document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
         if (btnEl) btnEl.classList.add('active');
+
+        // Dynamically sync Force Field hue with the chosen visualizer theme
+        const themeHues = { pills: 195, orb: 275, ring: 145, aurora: 175, quantum: 350 };
+        if (themeHues[themeName] !== undefined) {
+            updateFieldParam('hue', themeHues[themeName]);
+            const hueSlider = document.getElementById('fieldHue');
+            if (hueSlider) hueSlider.value = themeHues[themeName];
+        }
     }
 
     function toggleDemoAudio() {
@@ -1523,7 +1920,7 @@
     // ============================================================================
     function drawVisualizer(time) {
         try {
-            renderBackgroundDots();
+            renderForceField();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const spectrum = getAudioSpectrum(time);
 
