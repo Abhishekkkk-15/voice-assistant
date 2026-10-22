@@ -28,7 +28,7 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
         (tx, rx)
     };
 
-    let agent = Agent::new("You are a helpful and concise voice assistant.");
+    let mut agent = Agent::new("You are a helpful and concise voice assistant.");
 
     loop {
         tokio::select! {

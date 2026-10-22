@@ -3,8 +3,7 @@ use std::pin::Pin;
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
-use async_openai::types::chat::{ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs, CreateChatCompletionResponse};
-use async_openai::types::completions::CreateCompletionRequest;
+use async_openai::types::chat::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs, CreateChatCompletionResponse};
 
 use futures_util::Stream;
 use crate::core::audio::Audio;
@@ -21,14 +20,13 @@ pub struct Agent {
     /// System prompt setting the assistant's personality
     system_prompt: String,
     /// The sliding window memory of the conversation
-    history: Vec<CreateCompletionRequest>,
+    history: Vec<ChatCompletionRequestMessage>,
 }
 
 impl Agent {
     pub fn new(system_prompt:&str) -> Self {
         let config = AppConfig::global();
-   
-        Self { 
+        let mut agent = Agent{ 
             client: Client::with_config(
                 OpenAIConfig::new()
                     .with_api_base(config.openai_base_url.clone())
@@ -37,7 +35,16 @@ impl Agent {
             system_prompt: system_prompt.to_string(), 
             history: Vec::new(),
             audio_client: Audio::new(),
-        }
+        };
+
+        agent.setup_history();
+        agent
+        
+    }
+
+    fn setup_history(&mut self){
+
+        self.history.push(ChatCompletionRequestSystemMessage::from(self.system_prompt.as_str()).into());
     }
 
     pub async fn speech_generation(&self, text:&str)-> Pin<Box<dyn Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
@@ -48,19 +55,21 @@ impl Agent {
         self.audio_client.stt(audio_data).await
     }
 
-    pub async fn generation(&self, text:String)->Result<CreateChatCompletionResponse, OpenAIError> {
+    pub async fn generation(&mut self, text:String)->Result<CreateChatCompletionResponse, OpenAIError> {
+        &self.history.push(ChatCompletionRequestUserMessage::from(text.clone()).into());
         let config = AppConfig::global();
         let request = CreateChatCompletionRequestArgs::default()
             .model(&config.completion_model)
-            .messages([
-                ChatCompletionRequestSystemMessage::from(self.system_prompt.as_str()).into(),
-                ChatCompletionRequestUserMessage::from(text).into(),
-            ])
+            .messages(self.history.clone())
             .build()?;
 
         let res = self.client.chat().create(request).await;
         match res {
-            Ok(res) => Ok(res),
+            Ok(res) => {
+                if let Some(val) = &res.choices[0].message.content {
+                    &self.history.push(ChatCompletionRequestAssistantMessage::from(val.clone()).into());
+                }
+                Ok(res)},
             Err(e) => {
                 eprintln!("OpenAI Chat Error: {e:?}");
                 Err(e)
