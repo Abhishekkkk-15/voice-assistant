@@ -33,13 +33,12 @@
             position: relative;
         }
 
-        /* LED Mesh / Dot Matrix Background */
-        body::before {
-            content: '';
+        /* Dynamic Interactive Background Canvas */
+        canvas#bgDotsCanvas {
             position: fixed;
             inset: 0;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1.2px, transparent 1.2px);
-            background-size: 6px 6px;
+            width: 100vw;
+            height: 100vh;
             pointer-events: none;
             z-index: 1;
         }
@@ -563,19 +562,123 @@
             color: #e2e8f0;
         }
 
-        @media (max-width: 720px) {
+        /* Comprehensive Responsive Design */
+        @media (max-width: 960px) {
             header {
-                justify-content: center;
-                padding: 16px;
+                padding: 16px 20px;
+                gap: 12px;
+            }
+            .header-controls {
+                gap: 8px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 14px 16px;
+                gap: 12px;
+            }
+            .brand {
+                justify-content: space-between;
+                width: 100%;
+            }
+            .header-controls {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 8px;
+                width: 100%;
+                overflow-x: auto;
+                padding-bottom: 4px;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .header-controls::-webkit-scrollbar {
+                display: none;
             }
             .theme-selector {
-                overflow-x: auto;
+                flex-shrink: 0;
+            }
+            .voice-picker-wrapper, .demo-btn, .status-pill {
+                flex-shrink: 0;
+            }
+            main {
+                padding: 10px 14px;
+            }
+            canvas#ledCanvas {
+                max-width: 96vw;
+                border-radius: 18px;
+            }
+            .subtitle-box {
+                font-size: 0.95rem;
+                margin-top: 16px;
                 max-width: 92vw;
+                padding: 0 8px;
+            }
+            footer {
+                padding: 0 16px 20px;
+                max-width: 100%;
+            }
+            .input-bar {
+                padding: 5px 6px 5px 16px;
+            }
+            .input-bar input {
+                font-size: 16px; /* Prevents auto-zoom on mobile Safari */
+            }
+            .sys-audio-btn, .mic-btn, .send-btn {
+                width: 38px;
+                height: 38px;
+            }
+            .sys-audio-btn svg, .mic-btn svg, .send-btn svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .brand span {
+                font-size: 0.88rem;
+            }
+            .theme-btn {
+                font-size: 0.72rem;
+                padding: 5px 10px;
+            }
+            .voice-select {
+                font-size: 0.72rem;
+                padding: 5px 24px 5px 10px;
+            }
+            .demo-btn {
+                font-size: 0.72rem;
+                padding: 5px 10px;
+            }
+            .status-pill {
+                font-size: 0.74rem;
+                padding: 5px 10px;
+            }
+            .subtitle-box {
+                font-size: 0.88rem;
+                min-height: 24px;
+            }
+            .input-bar {
+                padding: 4px 5px 4px 12px;
+                border-radius: 28px;
+            }
+            .input-bar input {
+                font-size: 15px;
+            }
+            .sys-audio-btn, .mic-btn, .send-btn {
+                width: 36px;
+                height: 36px;
+                margin-right: 2px;
             }
         }
     </style>
 </head>
 <body>
+    <!-- Interactive Magnetic Dot Matrix Background -->
+    <canvas id="bgDotsCanvas"></canvas>
 
     <header>
         <div class="brand">
@@ -680,6 +783,196 @@
     </div>
 
 <script>
+    // ============================================================================
+    // Interactive Background Dot Matrix with Magnetic Cursor & Shockwave Ripples
+    // ============================================================================
+    const bgCanvas = document.getElementById('bgDotsCanvas');
+    const bgCtx = bgCanvas ? bgCanvas.getContext('2d') : null;
+
+    let bgDots = [];
+    let bgWidth = 0;
+    let bgHeight = 0;
+    const BG_DOT_SPACING = 24; // Grid spacing in px
+    const BG_MOUSE_RADIUS = 135; // Cursor influence radius in px
+
+    const bgMouse = {
+        x: -9999,
+        y: -9999,
+        targetX: -9999,
+        targetY: -9999,
+        active: false
+    };
+
+    const ripples = []; // Click & tap shockwaves
+
+    function initBackgroundDots() {
+        if (!bgCanvas || !bgCtx) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        bgWidth = window.innerWidth;
+        bgHeight = window.innerHeight;
+        bgCanvas.width = bgWidth * dpr;
+        bgCanvas.height = bgHeight * dpr;
+        bgCtx.resetTransform();
+        bgCtx.scale(dpr, dpr);
+
+        bgDots = [];
+        const cols = Math.ceil(bgWidth / BG_DOT_SPACING) + 1;
+        const rows = Math.ceil(bgHeight / BG_DOT_SPACING) + 1;
+        const offsetX = (bgWidth - (cols - 1) * BG_DOT_SPACING) / 2;
+        const offsetY = (bgHeight - (rows - 1) * BG_DOT_SPACING) / 2;
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const ox = offsetX + c * BG_DOT_SPACING;
+                const oy = offsetY + r * BG_DOT_SPACING;
+                bgDots.push({
+                    ox,
+                    oy,
+                    x: ox,
+                    y: oy,
+                    vx: 0,
+                    vy: 0,
+                    radius: 1.15,
+                    baseRadius: 1.15,
+                    alpha: 0.12,
+                    baseAlpha: 0.12
+                });
+            }
+        }
+    }
+
+    // Pointer events for mouse & touch
+    window.addEventListener('pointermove', (e) => {
+        bgMouse.targetX = e.clientX;
+        bgMouse.targetY = e.clientY;
+        bgMouse.active = true;
+    }, { passive: true });
+
+    window.addEventListener('pointerleave', () => {
+        bgMouse.targetX = -9999;
+        bgMouse.targetY = -9999;
+        bgMouse.active = false;
+    });
+
+    window.addEventListener('pointerdown', (e) => {
+        // Shockwave ripple on click/tap
+        ripples.push({
+            x: e.clientX,
+            y: e.clientY,
+            radius: 0,
+            maxRadius: Math.min(window.innerWidth, window.innerHeight) * 0.45,
+            speed: 5.5,
+            strength: 1.0
+        });
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+        initBackgroundDots();
+    });
+
+    function renderBackgroundDots() {
+        if (!bgCtx) return;
+        bgCtx.clearRect(0, 0, bgWidth, bgHeight);
+
+        // Interpolate mouse coordinates smoothly
+        if (bgMouse.active) {
+            bgMouse.x += (bgMouse.targetX - bgMouse.x) * 0.22;
+            bgMouse.y += (bgMouse.targetY - bgMouse.y) * 0.22;
+        } else {
+            bgMouse.x = -9999;
+            bgMouse.y = -9999;
+        }
+
+        // Update expanding shockwaves
+        for (let i = ripples.length - 1; i >= 0; i--) {
+            const rip = ripples[i];
+            rip.radius += rip.speed;
+            rip.strength = 1 - (rip.radius / rip.maxRadius);
+            if (rip.strength <= 0) {
+                ripples.splice(i, 1);
+            }
+        }
+
+        // Theme accent color for proximity lighting
+        let accentR = 0, accentG = 210, accentB = 255; // Default cyan
+        if (currentTheme === 'orb') { accentR = 168; accentG = 85; accentB = 247; }
+        else if (currentTheme === 'ring') { accentR = 0; accentG = 230; accentB = 118; }
+        else if (currentTheme === 'aurora') { accentR = 0; accentG = 242; accentB = 254; }
+        else if (currentTheme === 'quantum') { accentR = 255; accentG = 77; accentB = 77; }
+
+        // Audio energy breathing modulation
+        const audioPulse = (typeof smoothEnergy !== 'undefined' ? smoothEnergy : 0) * 0.8;
+
+        for (let i = 0; i < bgDots.length; i++) {
+            const dot = bgDots[i];
+
+            // 1. Mouse magnetic repel & illumination
+            const dx = dot.x - bgMouse.x;
+            const dy = dot.y - bgMouse.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            let targetAlpha = dot.baseAlpha + audioPulse * 0.22;
+            let targetRadius = dot.baseRadius + audioPulse * 0.7;
+            let curR = 255, curG = 255, curB = 255;
+
+            if (dist < BG_MOUSE_RADIUS) {
+                const norm = 1 - (dist / BG_MOUSE_RADIUS);
+                const force = Math.pow(norm, 1.8) * 16;
+                const angle = Math.atan2(dy, dx);
+
+                dot.vx += Math.cos(angle) * force * 0.42;
+                dot.vy += Math.sin(angle) * force * 0.42;
+
+                targetAlpha = Math.min(0.95, dot.baseAlpha + norm * 0.82);
+                targetRadius = dot.baseRadius + norm * 2.2;
+
+                curR = Math.round(255 + (accentR - 255) * norm);
+                curG = Math.round(255 + (accentG - 255) * norm);
+                curB = Math.round(255 + (accentB - 255) * norm);
+            }
+
+            // 2. Shockwave ripples
+            for (let j = 0; j < ripples.length; j++) {
+                const rip = ripples[j];
+                const rdx = dot.x - rip.x;
+                const rdy = dot.y - rip.y;
+                const rdist = Math.sqrt(rdx * rdx + rdy * rdy);
+                const diff = Math.abs(rdist - rip.radius);
+                if (diff < 35) {
+                    const waveIntensity = (1 - diff / 35) * rip.strength;
+                    const rAngle = Math.atan2(rdy, rdx);
+                    dot.vx += Math.cos(rAngle) * waveIntensity * 3.2;
+                    dot.vy += Math.sin(rAngle) * waveIntensity * 3.2;
+                    targetAlpha = Math.max(targetAlpha, waveIntensity * 0.9);
+                    targetRadius = Math.max(targetRadius, dot.baseRadius + waveIntensity * 2.2);
+                    curR = accentR; curG = accentG; curB = accentB;
+                }
+            }
+
+            // 3. Spring physics back to home (ox, oy)
+            const homeDx = dot.ox - dot.x;
+            const homeDy = dot.oy - dot.y;
+            dot.vx += homeDx * 0.085;
+            dot.vy += homeDy * 0.085;
+            dot.vx *= 0.82; // damping friction
+            dot.vy *= 0.82;
+
+            dot.x += dot.vx;
+            dot.y += dot.vy;
+
+            dot.alpha += (targetAlpha - dot.alpha) * 0.16;
+            dot.radius += (targetRadius - dot.radius) * 0.18;
+
+            // Render dot
+            bgCtx.beginPath();
+            bgCtx.arc(dot.x, dot.y, Math.max(0.4, dot.radius), 0, Math.PI * 2);
+            bgCtx.fillStyle = `rgba(${curR}, ${curG}, ${curB}, ${dot.alpha})`;
+            bgCtx.fill();
+        }
+    }
+
+    initBackgroundDots();
+
     const canvas = document.getElementById('ledCanvas');
     const ctx = canvas.getContext('2d');
 
@@ -1230,6 +1523,7 @@
     // ============================================================================
     function drawVisualizer(time) {
         try {
+            renderBackgroundDots();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const spectrum = getAudioSpectrum(time);
 
