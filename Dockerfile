@@ -1,5 +1,5 @@
-# --- Builder Stage ---
-FROM rust:slim AS builder
+# --- Builder Stage (Matches Debian Bookworm GLIBC version) ---
+FROM rust:slim-bookworm AS builder
 
 WORKDIR /app
 
