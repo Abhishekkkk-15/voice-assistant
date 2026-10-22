@@ -1385,10 +1385,6 @@
                 <label for="userIdInput">User ID</label>
                 <input type="text" id="userIdInput" value="user_1">
             </div>
-            <div class="field">
-                <label for="serverUrlInput">WebSocket URL</label>
-                <input type="text" id="serverUrlInput" value="ws://127.0.0.1:8080/ws">
-            </div>
             <div class="btn-group">
                 <button class="btn-action btn-secondary" onclick="closeConfig()">Cancel</button>
                 <button id="connectToggleBtn" class="btn-action btn-primary" onclick="toggleConnectionFromModal()">Connect</button>
@@ -2489,7 +2485,6 @@
 
     const roomInput = document.getElementById('roomInput');
     const userIdInput = document.getElementById('userIdInput');
-    const serverUrlInput = document.getElementById('serverUrlInput');
 
     // --- AI Spoken Voice Response Floating Display (Left Middle Screen, Auto-Vanishing) ---
     let aiVoiceVanishTimer = null;
@@ -2604,7 +2599,9 @@
     function connect() {
         const room = encodeURIComponent(roomInput.value.trim() || 'general');
         const userId = encodeURIComponent(userIdInput.value.trim() || 'user_1');
-        const base = serverUrlInput.value.trim() || 'ws://127.0.0.1:8080/ws';
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host || '127.0.0.1:8080';
+        const base = `${protocol}//${host}/ws`;
         const voiceSelect = document.getElementById('voiceSelect');
         const selectedVoice = voiceSelect ? voiceSelect.value : 'en-US-JennyNeural';
         const url = `${base}?room=${room}&user_id=${userId}&voice=${encodeURIComponent(selectedVoice)}`;
