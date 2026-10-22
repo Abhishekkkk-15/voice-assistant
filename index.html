@@ -654,6 +654,116 @@
             font-size: 0.9rem;
         }
 
+        /* AI Voice Floating Display - Left Middle Screen (No Background, Sci-Fi Dissipate Effect) */
+        .ai-speech-display {
+            position: fixed;
+            left: 54px;
+            top: 50%;
+            transform: translateY(-50%) translateX(0);
+            max-width: 440px;
+            width: auto;
+            z-index: 50;
+            pointer-events: none;
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            padding: 0 !important;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .ai-speech-display.visible {
+            opacity: 1;
+            visibility: visible;
+            animation: textMaterialize 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .ai-speech-display.vanishing {
+            pointer-events: none;
+            animation: textVaporize 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes textMaterialize {
+            0% {
+                opacity: 0;
+                filter: blur(14px) brightness(1.4);
+                transform: translateY(-48%) translateX(-20px) scale(0.97);
+                letter-spacing: 0.04em;
+            }
+            100% {
+                opacity: 1;
+                filter: blur(0px) brightness(1);
+                transform: translateY(-50%) translateX(0) scale(1);
+                letter-spacing: -0.015em;
+            }
+        }
+
+        @keyframes textVaporize {
+            0% {
+                opacity: 1;
+                filter: blur(0px) brightness(1);
+                transform: translateY(-50%) translateX(0) scale(1);
+                letter-spacing: -0.015em;
+                text-shadow: 0 2px 20px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 0, 0, 0.85);
+            }
+            20% {
+                opacity: 1;
+                filter: blur(1.5px) brightness(1.7);
+                transform: translateY(-51%) translateX(-4px) scale(1.025);
+                letter-spacing: 0.025em;
+                text-shadow: 0 0 20px rgba(0, 210, 255, 0.95), 0 0 40px rgba(0, 210, 255, 0.6), 0 0 70px rgba(0, 210, 255, 0.3);
+            }
+            55% {
+                opacity: 0.65;
+                filter: blur(8px) brightness(2.1);
+                transform: translateY(-53%) translateX(-18px) scale(1.01);
+                letter-spacing: 0.08em;
+                text-shadow: 0 0 30px rgba(0, 210, 255, 0.5), 0 0 60px rgba(0, 210, 255, 0.25);
+            }
+            100% {
+                opacity: 0;
+                visibility: hidden;
+                filter: blur(24px) brightness(2.6);
+                transform: translateY(-57%) translateX(-42px) scale(0.92);
+                letter-spacing: 0.18em;
+                text-shadow: 0 0 50px rgba(0, 210, 255, 0);
+            }
+        }
+
+        .ai-speech-content {
+            background: transparent !important;
+            color: #f8fafc;
+            font-size: 1.38rem;
+            font-weight: 500;
+            line-height: 1.52;
+            letter-spacing: -0.015em;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 0, 0, 0.85);
+            word-wrap: break-word;
+        }
+
+        @media (max-width: 900px) {
+            .ai-speech-display {
+                left: 24px;
+                max-width: 320px;
+            }
+            .ai-speech-content {
+                font-size: 1.15rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .ai-speech-display {
+                left: 18px;
+                top: 42%;
+                max-width: calc(100vw - 36px);
+            }
+            .ai-speech-content {
+                font-size: 1.05rem;
+            }
+        }
+
         /* Bottom Floating Input Bar */
         footer {
             position: relative;
@@ -1113,6 +1223,11 @@
         </div>
     </header>
 
+    <!-- AI Voice Response Floating Display (Left Middle Screen, No Background, Auto-Vanishing) -->
+    <div id="aiSpeechDisplay" class="ai-speech-display" aria-live="polite">
+        <div id="aiSpeechContent" class="ai-speech-content"></div>
+    </div>
+
     <main>
         <div class="visualizer-wrapper">
             <canvas id="ledCanvas" width="600" height="380"></canvas>
@@ -1562,13 +1677,16 @@
         const btn = document.getElementById('demoBtn');
         btn.classList.toggle('active', isDemoActive);
         if (isDemoActive) {
-            subtitle.innerText = 'Simulating neural voice stream...';
-            subtitle.classList.remove('muted');
-        } else if (!isAudioPlaying) {
-            subtitle.innerText = ws && ws.readyState === WebSocket.OPEN
-                ? 'Ready. Type a message below.'
-                : 'Click "Disconnected" to connect or "✦ Sim Voice" to preview themes';
-            if (!ws || ws.readyState !== WebSocket.OPEN) subtitle.classList.add('muted');
+            showAiVoiceResponse("Simulating neural voice synthesis with real-time waveform modulation.", "cheerful");
+            subtitle.innerText = '';
+        } else {
+            scheduleAiVoiceVanish(2000);
+            if (!isAudioPlaying) {
+                subtitle.innerText = ws && ws.readyState === WebSocket.OPEN
+                    ? 'Ready. Type a message below.'
+                    : 'Click "Disconnected" to connect or "✦ Sim Voice" to preview themes';
+                if (!ws || ws.readyState !== WebSocket.OPEN) subtitle.classList.add('muted');
+            }
         }
     }
 
@@ -1635,7 +1753,7 @@
 
             persistentAudio.onended = () => {
                 isAudioPlaying = false;
-                subtitle.innerText = 'Listening...';
+                scheduleAiVoiceVanish(2000);
             };
         }
         if (audioCtx.state === 'suspended') {
@@ -2134,6 +2252,54 @@
     const userIdInput = document.getElementById('userIdInput');
     const serverUrlInput = document.getElementById('serverUrlInput');
 
+    // --- AI Spoken Voice Response Floating Display (Left Middle Screen, Auto-Vanishing) ---
+    let aiVoiceVanishTimer = null;
+
+    function showAiVoiceResponse(text) {
+        const display = document.getElementById('aiSpeechDisplay');
+        const content = document.getElementById('aiSpeechContent');
+        if (!display || !content) return;
+
+        if (aiVoiceVanishTimer) {
+            clearTimeout(aiVoiceVanishTimer);
+            aiVoiceVanishTimer = null;
+        }
+
+        content.innerHTML = `“${escapeHtml(text)}”`;
+
+        display.classList.remove('vanishing');
+        display.classList.add('visible');
+
+        // Fallback: if voice audio does not start, auto-vanish in 6s
+        scheduleAiVoiceVanish(6000);
+    }
+
+    function scheduleAiVoiceVanish(delayMs = 2000) {
+        if (aiVoiceVanishTimer) {
+            clearTimeout(aiVoiceVanishTimer);
+        }
+        aiVoiceVanishTimer = setTimeout(() => {
+            const display = document.getElementById('aiSpeechDisplay');
+            if (display && display.classList.contains('visible')) {
+                display.classList.remove('visible');
+                display.classList.add('vanishing');
+
+                // Trigger dissipation shockwave in background particles
+                if (typeof ripples !== 'undefined') {
+                    ripples.push({
+                        x: 80,
+                        y: window.innerHeight * 0.5,
+                        radius: 0,
+                        maxRadius: 220,
+                        speed: 5.2,
+                        strength: 0.75
+                    });
+                }
+            }
+            aiVoiceVanishTimer = null;
+        }, delayMs);
+    }
+
     // --- Header Three-Dot Menu Handlers ---
     function toggleHeaderMenu(event) {
         if (event) event.stopPropagation();
@@ -2221,20 +2387,8 @@
                         } else if (parsed.transcription) {
                             subtitle.innerText = `You: “${parsed.transcription}”`;
                         } else if (parsed.ai_response) {
-                            let badge = '';
-                            if (parsed.emotion && parsed.emotion !== 'neutral') {
-                                const emojis = {
-                                    cheerful: '😊',
-                                    excited: '✨',
-                                    empathetic: '💜',
-                                    friendly: '👋',
-                                    whispering: '🤫',
-                                    sad: '🥺'
-                                };
-                                const emoji = emojis[parsed.emotion.toLowerCase()] || '💭';
-                                badge = `<span class="emotion-badge ${parsed.emotion.toLowerCase()}">${emoji} ${parsed.emotion}</span> `;
-                            }
-                            subtitle.innerHTML = `${badge}“${escapeHtml(parsed.ai_response)}”`;
+                            showAiVoiceResponse(parsed.ai_response);
+                            subtitle.innerText = '';
                         } else if (parsed.status === 'tts_empty') {
                             subtitle.innerText = `⚠️ ${parsed.warning}`;
                         } else if (parsed.status === 'no_speech_detected') {
@@ -2678,7 +2832,7 @@
 
         persistentAudio.src = audioUrl;
         isAudioPlaying = true;
-        subtitle.innerText = 'Speaking...';
+        subtitle.innerText = '';
 
         persistentAudio.play().catch(e => {
             console.warn('Playback error / autoplay blocked:', e);
