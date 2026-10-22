@@ -216,8 +216,14 @@ async fn ws_handler(req: HttpRequest, stream: web::Payload, data: Data<WSSession
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Voice Assistant server running on http://127.0.0.1:8080");
-    println!("WebSocket endpoint on ws://127.0.0.1:8080/ws");
+    dotenvy::dotenv().ok();
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(8080);
+
+    println!("Voice Assistant server running on http://0.0.0.0:{port}");
+    println!("WebSocket endpoint on ws://0.0.0.0:{port}/ws");
     let session: Data<WSSession> = web::Data::new(WSSession {
         store: Mutex::new(HashMap::new()),
     });
@@ -227,7 +233,7 @@ async fn main() -> std::io::Result<()> {
             .service(index)
             .service(ws_handler)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", port))?
     .run()
     .await
 }
