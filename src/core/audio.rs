@@ -5,7 +5,7 @@ use bytes;
 use futures_util::StreamExt;
 use serde::Deserialize;
 
-use crate::utlis::config::AppConfig;
+use crate::utlis::{config::AppConfig, parser::{build_ssml, parse_speech_segments}};
 
 pub struct Audio {
     req_client: Client,
@@ -26,7 +26,7 @@ impl Audio {
         }
     }
 
-    pub async fn tts(&self, text: String) -> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
+    pub async fn tts(&self, text: &str, voice: &str) -> Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
         let config = AppConfig::global();
         let mut headers = HeaderMap::new();
         headers.insert("Ocp-Apim-Subscription-Key", HeaderValue::from_str(&config.api_key).unwrap());
@@ -34,12 +34,8 @@ impl Audio {
         headers.insert("User-Agent", HeaderValue::from_static("voice-agent"));
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/ssml+xml"));
 
-        let ssml_body = format!(
-            "<speak version='1.0' xml:lang='en-US'>\
-                <voice xml:lang='en-US' name='{}'>{}</voice>\
-            </speak>",
-            &config.tts_voice, text
-        );
+        let segments = parse_speech_segments(text);
+        let ssml_body = build_ssml(&segments, voice);
 
         let req = self.req_client
             .post(config.azure_audio_url.clone())
@@ -69,7 +65,7 @@ impl Audio {
         headers.insert("User-Agent", HeaderValue::from_static("voice-agent"));
         headers.insert("Accept", HeaderValue::from_static("application/json"));
 
-        // 3. Azure STT REST endpoint (using centralindia where your speech service is provisioned)
+        // 3. Azure STT REST endpoint
         let stt_url = "https://centralindia.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US";
 
         // 4. Send raw audio bytes in POST body

@@ -184,6 +184,70 @@
             box-shadow: 0 0 10px #22c55e;
         }
 
+        /* Voice Picker Dropdown */
+        .voice-picker-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .voice-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: #cbd5e1;
+            font-size: 0.78rem;
+            font-weight: 500;
+            padding: 6px 28px 6px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            outline: none;
+            backdrop-filter: blur(12px);
+            transition: all 0.2s ease;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 13px;
+        }
+
+        .voice-select:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .voice-select option {
+            background: #111116;
+            color: #f1f5f9;
+        }
+
+        /* Emotion Badges */
+        .emotion-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            text-transform: capitalize;
+            letter-spacing: 0.02em;
+            margin-right: 6px;
+            vertical-align: middle;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f1f5f9;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .emotion-badge.cheerful { background: rgba(245, 158, 11, 0.25); border-color: #f59e0b; color: #fbbf24; }
+        .emotion-badge.excited { background: rgba(236, 72, 153, 0.25); border-color: #ec4899; color: #f472b6; }
+        .emotion-badge.empathetic { background: rgba(168, 85, 247, 0.25); border-color: #a855f7; color: #c084fc; }
+        .emotion-badge.friendly { background: rgba(34, 197, 94, 0.25); border-color: #22c55e; color: #4ade80; }
+        .emotion-badge.whispering { background: rgba(6, 182, 212, 0.25); border-color: #06b6d4; color: #22d3ee; }
+        .emotion-badge.sad { background: rgba(100, 116, 139, 0.25); border-color: #64748b; color: #94a3b8; }
+
         .status-pill.connected {
             color: #f1f5f9;
         }
@@ -526,6 +590,18 @@
                 <button class="theme-btn" onclick="setTheme('ring', this)">Cyber Ring</button>
                 <button class="theme-btn" onclick="setTheme('aurora', this)">Aurora Waves</button>
                 <button class="theme-btn" onclick="setTheme('quantum', this)">Quantum Core</button>
+            </div>
+
+            <!-- Voice Picker Dropdown -->
+            <div class="voice-picker-wrapper" title="Choose Assistant Voice">
+                <select id="voiceSelect" class="voice-select" onchange="handleVoiceChange()">
+                    <option value="en-US-JennyNeural" selected>Jenny (Expressive ♀)</option>
+                    <option value="en-US-GuyNeural">Guy (Expressive ♂)</option>
+                    <option value="en-US-AriaNeural">Aria (Conversational ♀)</option>
+                    <option value="en-US-DavisNeural">Davis (Casual ♂)</option>
+                    <option value="en-IN-NeerjaNeural">Neerja (Warm Indian ♀)</option>
+                    <option value="en-US-Ethan:MAI-Voice-2">Ethan (Natural ♂)</option>
+                </select>
             </div>
 
             <!-- Voice Simulator Toggle for instant previewing -->
@@ -1224,7 +1300,9 @@
         const room = encodeURIComponent(roomInput.value.trim() || 'general');
         const userId = encodeURIComponent(userIdInput.value.trim() || 'user_1');
         const base = serverUrlInput.value.trim() || 'ws://127.0.0.1:8080/ws';
-        const url = `${base}?room=${room}&user_id=${userId}`;
+        const voiceSelect = document.getElementById('voiceSelect');
+        const selectedVoice = voiceSelect ? voiceSelect.value : 'en-US-JennyNeural';
+        const url = `${base}?room=${room}&user_id=${userId}&voice=${encodeURIComponent(selectedVoice)}`;
 
         statusLabel.innerText = 'Connecting...';
         subtitle.innerText = 'Connecting to assistant...';
@@ -1255,7 +1333,20 @@
                         } else if (parsed.transcription) {
                             subtitle.innerText = `You: “${parsed.transcription}”`;
                         } else if (parsed.ai_response) {
-                            subtitle.innerText = `AI: “${parsed.ai_response}”`;
+                            let badge = '';
+                            if (parsed.emotion && parsed.emotion !== 'neutral') {
+                                const emojis = {
+                                    cheerful: '😊',
+                                    excited: '✨',
+                                    empathetic: '💜',
+                                    friendly: '👋',
+                                    whispering: '🤫',
+                                    sad: '🥺'
+                                };
+                                const emoji = emojis[parsed.emotion.toLowerCase()] || '💭';
+                                badge = `<span class="emotion-badge ${parsed.emotion.toLowerCase()}">${emoji} ${parsed.emotion}</span> `;
+                            }
+                            subtitle.innerHTML = `${badge}“${escapeHtml(parsed.ai_response)}”`;
                         } else if (parsed.status === 'no_speech_detected') {
                             subtitle.innerText = 'No clear speech detected. (Make sure you speak or play audio with clear dialogue)';
                         } else if (parsed.error) {
@@ -1628,6 +1719,32 @@
         pcmBytes.set(pcm16);
 
         return buffer;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function handleVoiceChange() {
+        const voiceSelect = document.getElementById('voiceSelect');
+        if (!voiceSelect) return;
+        const voice = voiceSelect.value;
+        localStorage.setItem('selected_voice', voice);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                room: roomInput.value.trim() || 'general',
+                content: '',
+                voice: voice
+            }));
+            subtitle.innerText = `Voice changed to: ${voiceSelect.options[voiceSelect.selectedIndex].text}`;
+            subtitle.classList.remove('muted');
+        }
     }
 
     function handleSend() {

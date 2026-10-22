@@ -8,7 +8,7 @@ use futures_util::StreamExt;
 
 use tokio::sync::broadcast;
 use utlis::session::WSSession;
-use core::agent::Agent;
+use core::agent::{Agent, EXPRESSIVE_VOICE_SYSTEM_PROMPT};
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -28,7 +28,10 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
         (tx, rx)
     };
 
-    let mut agent = Agent::new("You are a helpful and concise voice assistant.");
+    let mut current_voice = query.voice.unwrap_or_else(|| "en-US-JennyNeural".to_string());
+    println!("🎙️ Room handler initialized with voice: {}", current_voice);
+
+    let mut agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
 
     loop {
         tokio::select! {
@@ -39,7 +42,15 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
                             match serde_json::from_str::<ClientMessage>(&text) {
                                 Ok(parsed) => {
                                     println!("Received Text JSON: {:?}", parsed);
-                                    let _ = room_tx.send(parsed.content);
+                                    if let Some(v) = parsed.voice {
+                                        if !v.trim().is_empty() {
+                                            println!("🎙️ Selected voice changed to: {}", v);
+                                            current_voice = v;
+                                        }
+                                    }
+                                    if !parsed.content.trim().is_empty() {
+                                        let _ = room_tx.send(parsed.content);
+                                    }
                                     let _ = session.text("{\"status\":\"received\"}").await;
                                 }
                                 Err(err) => {
@@ -77,7 +88,14 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
                                 }
                             } else if let Ok(parsed) = serde_json::from_slice::<ClientMessage>(&bin) {
                                 println!("Parsed binary JSON: {:?}", parsed);
-                                let _ = room_tx.send(parsed.content);
+                                if let Some(v) = parsed.voice {
+                                    if !v.trim().is_empty() {
+                                        current_voice = v;
+                                    }
+                                }
+                                if !parsed.content.trim().is_empty() {
+                                    let _ = room_tx.send(parsed.content);
+                                }
                             }
                         }
                         AggregatedMessage::Ping(bytes) => {
@@ -109,13 +127,22 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
                         match agent.generation(msg).await {
                             Ok(agent_res) => {
                                 if let Some(val) = &agent_res.choices[0].message.content {
-                                    println!("AI Response: {val}");
+                                    println!("AI Raw Response: {val}");
+
+                                    // Parse emotions and construct clean text
+                                    let segments = utlis::parser::parse_speech_segments(val);
+                                    let clean_text = segments.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ");
+                                    let display_text = if clean_text.trim().is_empty() { val.as_str() } else { clean_text.as_str() };
+                                    let emotion = segments.iter().find_map(|s| s.emotion.clone()).unwrap_or_else(|| "neutral".to_string());
+
                                     let res_json = serde_json::json!({
-                                        "ai_response": val
+                                        "ai_response": display_text,
+                                        "raw_response": val,
+                                        "emotion": emotion
                                     }).to_string();
                                     let _ = session.text(res_json).await;
 
-                                    let mut stream = agent.speech_generation(val).await;
+                                    let mut stream = agent.speech_generation(val, &current_voice).await;
                                     let mut chunk_count = 0;
                                     while let Some(chunk) = stream.next().await {
                                         if let Ok(c) = chunk {
@@ -125,7 +152,7 @@ async fn room_handler(mut session: Session, mut msg_stream: AggregatedMessageStr
                                             }
                                         }
                                     }
-                                    println!("🔊 Sent {} TTS audio chunks to client", chunk_count);
+                                    println!("🔊 Sent {} TTS audio chunks using voice [{}] to client", chunk_count, current_voice);
                                 }
                             }
                             Err(e) => {
@@ -165,8 +192,8 @@ async fn ws_handler(req: HttpRequest, stream: web::Payload, data: Data<WSSession
         .aggregate_continuations()
         .max_continuation_size(15 * 1024 * 1024);
     println!("WebSocket connected");
-    let WsQuery { room, user_id } = query.into_inner();
-    let ws_query = WsQuery { room, user_id };
+    let WsQuery { room, user_id, voice } = query.into_inner();
+    let ws_query = WsQuery { room, user_id, voice };
     actix_web::rt::spawn(async move {
         room_handler(session, msg_stream, data, ws_query).await;
     });
