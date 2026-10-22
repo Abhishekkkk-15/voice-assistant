@@ -82,7 +82,161 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            flex-wrap: wrap;
+        }
+
+        /* Three-Dot Menu & Dropdown */
+        .menu-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .menu-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            color: #94a3b8;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.22s ease;
+            flex-shrink: 0;
+        }
+
+        .menu-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #f1f5f9;
+        }
+
+        .menu-btn.active {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            box-shadow: 0 0 14px rgba(255, 255, 255, 0.15);
+        }
+
+        .header-dropdown {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 300px;
+            background: rgba(14, 14, 20, 0.94);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.03);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+            transform-origin: top right;
+        }
+
+        .header-dropdown.open {
+            display: flex;
+            animation: menuFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes menuFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-6px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .dropdown-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 10px;
+        }
+
+        .dropdown-header span {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+
+        .dropdown-close {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            font-size: 0.85rem;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+
+        .dropdown-close:hover {
+            color: #ffffff;
+        }
+
+        .dropdown-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .dropdown-section-title {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+        }
+
+        .theme-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 6px;
+        }
+
+        .theme-selector-grid .theme-btn {
+            width: 100%;
+            text-align: center;
+            padding: 7px 8px;
+            border-radius: 8px;
+            font-size: 0.74rem;
+        }
+
+        .theme-selector-grid .theme-btn:last-child:nth-child(odd) {
+            grid-column: span 2;
+        }
+
+        .dropdown-actions-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .dropdown-actions-row .demo-btn,
+        .dropdown-actions-row .force-btn {
+            flex: 1;
+            justify-content: center;
+            padding: 7px 10px;
         }
 
         /* Theme Selector Bar */
@@ -180,22 +334,20 @@
         }
 
         .field-hud-badge {
-            position: fixed;
-            top: 24px;
-            right: 32px;
-            z-index: 25;
-            background: rgba(0, 0, 0, 0.4);
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.04);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 5px 14px;
+            padding: 4px 10px;
             border-radius: 999px;
-            font-size: 0.72rem;
+            font-size: 0.68rem;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            color: rgba(255, 255, 255, 0.45);
+            color: rgba(255, 255, 255, 0.4);
             letter-spacing: 0.04em;
             pointer-events: none;
-            transition: opacity 0.3s ease;
+            margin-left: 8px;
         }
 
         .force-field-dock {
@@ -768,43 +920,22 @@
 
         @media (max-width: 768px) {
             header {
-                flex-direction: column;
-                align-items: stretch;
-                padding: 14px 16px;
+                padding: 14px 18px;
                 gap: 12px;
             }
             .brand {
-                justify-content: space-between;
-                width: 100%;
+                justify-content: flex-start;
+                width: auto;
             }
             .header-controls {
                 display: flex;
                 align-items: center;
-                justify-content: flex-start;
+                justify-content: flex-end;
                 gap: 8px;
-                width: 100%;
-                overflow-x: auto;
-                padding-bottom: 4px;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: none;
+                width: auto;
             }
-            .header-controls::-webkit-scrollbar {
-                display: none;
-            }
-            .theme-selector {
+            .status-pill {
                 flex-shrink: 0;
-            }
-            .voice-picker-wrapper, .demo-btn, .status-pill {
-                flex-shrink: 0;
-            }
-            .force-btn {
-                flex-shrink: 0;
-            }
-            .field-hud-badge {
-                top: 14px;
-                right: 14px;
-                font-size: 0.65rem;
-                padding: 4px 10px;
             }
             .force-field-dock {
                 bottom: 84px;
@@ -854,21 +985,12 @@
             .brand span {
                 font-size: 0.88rem;
             }
-            .theme-btn {
-                font-size: 0.72rem;
-                padding: 5px 10px;
+            .field-hud-badge {
+                display: none;
             }
-            .voice-select {
-                font-size: 0.72rem;
-                padding: 5px 24px 5px 10px;
-            }
-            .demo-btn {
-                font-size: 0.72rem;
-                padding: 5px 10px;
-            }
-            .force-btn {
-                font-size: 0.72rem;
-                padding: 5px 10px;
+            .header-dropdown {
+                width: calc(100vw - 32px);
+                right: 0;
             }
             .status-pill {
                 font-size: 0.74rem;
@@ -897,57 +1019,85 @@
     <!-- Interactive Magnetic Dot Matrix Background -->
     <canvas id="bgDotsCanvas"></canvas>
 
-    <!-- Real-time Force Field HUD Badge (FPS & Points Counter) -->
-    <div id="fieldHudBadge" class="field-hud-badge" title="Force Field Real-time Stats">
-        <span id="fieldFpsLabel">FPS: 60</span> • <span id="fieldPointsLabel">POINTS: --</span>
-    </div>
-
     <header>
         <div class="brand">
             <span>Voice Core</span>
+            <!-- Real-time Force Field HUD Badge (FPS & Points Counter) -->
+            <div id="fieldHudBadge" class="field-hud-badge" title="Force Field Real-time Stats">
+                <span id="fieldFpsLabel">FPS: 60</span> • <span id="fieldPointsLabel">POINTS: --</span>
+            </div>
         </div>
 
         <div class="header-controls">
-            <!-- Visualizer Theme Switcher -->
-            <div class="theme-selector" role="tablist" aria-label="Visualizer Themes">
-                <button class="theme-btn active" onclick="setTheme('pills', this)">LED Pills</button>
-                <button class="theme-btn" onclick="setTheme('orb', this)">Siri Orb</button>
-                <button class="theme-btn" onclick="setTheme('ring', this)">Cyber Ring</button>
-                <button class="theme-btn" onclick="setTheme('aurora', this)">Aurora Waves</button>
-                <button class="theme-btn" onclick="setTheme('quantum', this)">Quantum Core</button>
-            </div>
-
-            <!-- Voice Picker Dropdown -->
-            <div class="voice-picker-wrapper" title="Choose Assistant Voice">
-                <select id="voiceSelect" class="voice-select" onchange="handleVoiceChange()">
-                    <option value="en-US-JennyMultilingualNeural" selected>Jenny (Multilingual ♀)</option>
-                    <option value="en-US-AvaMultilingualNeural">Ava (Multilingual ♀)</option>
-                    <option value="hi-IN-SwaraNeural">Swara (Hindi ♀)</option>
-                    <option value="hi-IN-MadhurNeural">Madhur (Hindi ♂)</option>
-                    <option value="en-US-GuyNeural">Guy (Expressive ♂)</option>
-                    <option value="en-US-AriaNeural">Aria (Conversational ♀)</option>
-                    <option value="en-US-DavisNeural">Davis (Casual ♂)</option>
-                    <option value="en-US-Ethan:MAI-Voice-2">Ethan (Natural ♂)</option>
-                </select>
-            </div>
-
-            <!-- Voice Simulator Toggle for instant previewing -->
-            <button id="demoBtn" class="demo-btn" onclick="toggleDemoAudio()" title="Simulate voice audio to test themes">
-                <span>✦ Sim Voice</span>
-            </button>
-
-            <!-- Force Field Controls Toggle Button -->
-            <button id="forceFieldToggleBtn" class="force-btn" onclick="toggleForceFieldDock()" title="Toggle Force Field Physics Controls">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                </svg>
-                <span>⚡ Force Field</span>
-            </button>
-
-            <button id="statusPill" class="status-pill" onclick="openConfig()">
+            <!-- Connect Status Pill Button -->
+            <button id="statusPill" class="status-pill" onclick="openConfig()" title="Connection Status & Settings">
                 <span class="status-dot"></span>
                 <span id="statusLabel">Disconnected</span>
             </button>
+
+            <!-- Three-Dot (Kebab) Menu Container -->
+            <div class="menu-container">
+                <button id="menuToggleBtn" class="menu-btn" onclick="toggleHeaderMenu(event)" aria-label="More Options" title="More Options">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="2.2"></circle>
+                        <circle cx="12" cy="12" r="2.2"></circle>
+                        <circle cx="12" cy="19" r="2.2"></circle>
+                    </svg>
+                </button>
+
+                <!-- Header Options Dropdown Menu -->
+                <div id="headerDropdown" class="header-dropdown" onclick="event.stopPropagation()">
+                    <div class="dropdown-header">
+                        <span>Options & Tools</span>
+                        <button class="dropdown-close" onclick="closeHeaderMenu()" title="Close menu">✕</button>
+                    </div>
+
+                    <!-- Visualizer Theme Switcher -->
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Visualizer Theme</div>
+                        <div class="theme-selector-grid" role="tablist" aria-label="Visualizer Themes">
+                            <button class="theme-btn active" onclick="setTheme('pills', this)">LED Pills</button>
+                            <button class="theme-btn" onclick="setTheme('orb', this)">Siri Orb</button>
+                            <button class="theme-btn" onclick="setTheme('ring', this)">Cyber Ring</button>
+                            <button class="theme-btn" onclick="setTheme('aurora', this)">Aurora Waves</button>
+                            <button class="theme-btn" onclick="setTheme('quantum', this)">Quantum Core</button>
+                        </div>
+                    </div>
+
+                    <!-- Voice Picker Dropdown -->
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Assistant Voice</div>
+                        <div class="voice-picker-wrapper" title="Choose Assistant Voice" style="width: 100%;">
+                            <select id="voiceSelect" class="voice-select" style="width: 100%;" onchange="handleVoiceChange()">
+                                <option value="en-US-JennyMultilingualNeural" selected>Jenny (Multilingual ♀)</option>
+                                <option value="en-US-AvaMultilingualNeural">Ava (Multilingual ♀)</option>
+                                <option value="hi-IN-SwaraNeural">Swara (Hindi ♀)</option>
+                                <option value="hi-IN-MadhurNeural">Madhur (Hindi ♂)</option>
+                                <option value="en-US-GuyNeural">Guy (Expressive ♂)</option>
+                                <option value="en-US-AriaNeural">Aria (Conversational ♀)</option>
+                                <option value="en-US-DavisNeural">Davis (Casual ♂)</option>
+                                <option value="en-US-Ethan:MAI-Voice-2">Ethan (Natural ♂)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Quick Action Toggles -->
+                    <div class="dropdown-section dropdown-actions-row">
+                        <!-- Voice Simulator Toggle for instant previewing -->
+                        <button id="demoBtn" class="demo-btn" onclick="toggleDemoAudio()" title="Simulate voice audio to test themes">
+                            <span>✦ Sim Voice</span>
+                        </button>
+
+                        <!-- Force Field Controls Toggle Button -->
+                        <button id="forceFieldToggleBtn" class="force-btn" onclick="toggleForceFieldDock(); closeHeaderMenu();" title="Toggle Force Field Physics Controls">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
+                            <span>⚡ Force Field</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -1972,7 +2122,40 @@
     const userIdInput = document.getElementById('userIdInput');
     const serverUrlInput = document.getElementById('serverUrlInput');
 
+    // --- Header Three-Dot Menu Handlers ---
+    function toggleHeaderMenu(event) {
+        if (event) event.stopPropagation();
+        const menu = document.getElementById('headerDropdown');
+        const btn = document.getElementById('menuToggleBtn');
+        if (!menu) return;
+        const isOpen = menu.classList.toggle('open');
+        if (btn) btn.classList.toggle('active', isOpen);
+    }
+
+    function closeHeaderMenu() {
+        const menu = document.getElementById('headerDropdown');
+        const btn = document.getElementById('menuToggleBtn');
+        if (menu) menu.classList.remove('open');
+        if (btn) btn.classList.remove('active');
+    }
+
+    // Close dropdown on click outside or Escape
+    window.addEventListener('click', (e) => {
+        const container = document.querySelector('.menu-container');
+        if (container && !container.contains(e.target)) {
+            closeHeaderMenu();
+        }
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeHeaderMenu();
+            closeConfig();
+        }
+    });
+
     function openConfig() {
+        closeHeaderMenu();
         configOverlay.classList.add('open');
     }
 
