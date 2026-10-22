@@ -56,7 +56,7 @@
         /* Top Minimal Header */
         header {
             position: relative;
-            z-index: 10;
+            z-index: 80;
             width: 100%;
             max-width: 1040px;
             padding: 20px 32px;
@@ -89,6 +89,7 @@
             position: relative;
             display: inline-flex;
             align-items: center;
+            z-index: 85;
         }
 
         .menu-btn {
@@ -106,6 +107,7 @@
             -webkit-backdrop-filter: blur(12px);
             transition: all 0.22s ease;
             flex-shrink: 0;
+            pointer-events: auto;
         }
 
         .menu-btn:hover {
@@ -138,6 +140,7 @@
             flex-direction: column;
             gap: 14px;
             transform-origin: top right;
+            pointer-events: auto;
         }
 
         .header-dropdown.open {
@@ -162,6 +165,7 @@
             justify-content: space-between;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             padding-bottom: 10px;
+            pointer-events: auto;
         }
 
         .dropdown-header span {
@@ -181,6 +185,7 @@
             padding: 2px 6px;
             border-radius: 4px;
             transition: color 0.2s;
+            pointer-events: auto;
         }
 
         .dropdown-close:hover {
@@ -191,6 +196,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            pointer-events: auto;
         }
 
         .dropdown-section-title {
@@ -209,14 +215,17 @@
             border: 1px solid var(--card-border);
             border-radius: 12px;
             padding: 6px;
+            pointer-events: auto;
         }
 
         .theme-selector-grid .theme-btn {
             width: 100%;
             text-align: center;
-            padding: 7px 8px;
+            padding: 8px 10px;
             border-radius: 8px;
             font-size: 0.74rem;
+            cursor: pointer;
+            pointer-events: auto;
         }
 
         .theme-selector-grid .theme-btn:last-child:nth-child(odd) {
@@ -230,13 +239,16 @@
             gap: 8px;
             padding-top: 6px;
             border-top: 1px solid rgba(255, 255, 255, 0.06);
+            pointer-events: auto;
         }
 
         .dropdown-actions-row .demo-btn,
         .dropdown-actions-row .force-btn {
             flex: 1;
             justify-content: center;
-            padding: 7px 10px;
+            padding: 8px 10px;
+            cursor: pointer;
+            pointer-events: auto;
         }
 
         /* Theme Selector Bar */
@@ -1046,7 +1058,7 @@
                 </button>
 
                 <!-- Header Options Dropdown Menu -->
-                <div id="headerDropdown" class="header-dropdown" onclick="event.stopPropagation()">
+                <div id="headerDropdown" class="header-dropdown">
                     <div class="dropdown-header">
                         <span>Options & Tools</span>
                         <button class="dropdown-close" onclick="closeHeaderMenu()" title="Close menu">✕</button>
