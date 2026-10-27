@@ -75,7 +75,7 @@ pub fn build_ssml(segments: &[SpeechSegment], voice: &str) -> String {
         match &segment.emotion {
             Some(style) if !style.eq_ignore_ascii_case("neutral") && !style.is_empty() => {
                 inner_content.push_str(&format!(
-                    r#"<mstts:express-as style="{style}" styledegree="1.2">{safe_text}</mstts:express-as>"#
+                    r#"<mstts:express-as style="{style}" styledegree="1.8">{safe_text}</mstts:express-as>"#
                 ));
             }
             _ => {
