@@ -3,8 +3,9 @@ use std::pin::Pin;
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
-use async_openai::types::chat::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs, CreateChatCompletionResponse};
+use async_openai::types::chat::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs, CreateChatCompletionResponse, CreateChatCompletionStreamResponse};
 
+use async_openai::types::completions::{CreateCompletionRequestArgs, CreateCompletionResponse};
 use futures_util::Stream;
 use crate::core::audio::Audio;
 use crate::utlis::config::AppConfig;
@@ -60,7 +61,7 @@ impl Agent {
     pub async fn transcribe(&self, audio_data: Vec<u8>) -> Result<String, reqwest::Error> {
         self.audio_client.stt(audio_data).await
     }
-
+    // one shot completion
     pub async fn generation(&mut self, text: String) -> Result<CreateChatCompletionResponse, OpenAIError> {
         self.history.push(ChatCompletionRequestUserMessage::from(text).into());
         let config = AppConfig::global();
@@ -83,4 +84,40 @@ impl Agent {
             }
         }
     }
+
+    // stream 
+    pub async fn generation_stream(&mut self, text: String) ->Result<Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>, OpenAIError>{
+        self.history.push(ChatCompletionRequestUserMessage::from(text).into());
+        let config = AppConfig::global();
+        let result = async {
+        let request = CreateChatCompletionRequestArgs::default()
+            .model(&config.completion_model)
+            .messages(self.history.clone())
+            .build()?;
+
+        self.client.chat().create_stream(request).await
+    }
+    .await;
+
+    match result{
+        Ok(res) => Ok(Box::pin(res)),
+        Err(err) => Err(err)
+    }
+
+    }
+
 }
+
+// async fn sd() -> Result<(), Box<dyn std::error::Error>> {
+//     let client = Client::new();
+
+//     let request = CreateCompletionRequestArgs::default()
+//         .model("gpt-3.5-turbo-instruct")
+//         .n(1)
+//         .prompt("Tell me a bedtime story about Optimus Prime and Bumblebee")
+//         .stream(true)
+//         .max_tokens(1024_u32)
+//         .build()?;
+
+//     let mut stream = client.completions().create_stream(request).await?;
+// }
