@@ -67,7 +67,7 @@ pub async fn run_conversation_session(
                 match agent.transcribe(bin).await{
                     Ok(text) if !text.trim().is_empty() => {
                     let _ = outbound_tx.send(AssistantEvent::TextTranscription(text.clone())).await;
-                        process_ai_turn(text, &mut agent, &outbound_tx, &current_voice).await
+                        process_ai_turn(text, &mut agent, &outbound_tx, &current_voice).await;
                     },
                     Ok(_) => {},
                     Err(err) =>{
