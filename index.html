@@ -1186,7 +1186,7 @@
 
         <div class="header-controls">
             <!-- Connect Status Pill Button -->
-            <button id="statusPill" class="status-pill" onclick="openConfig()" title="Connection Status & Settings">
+            <button id="statusPill" class="status-pill" onclick="toggleConnection()" title="Click to Connect / Disconnect">
                 <span class="status-dot"></span>
                 <span id="statusLabel">Disconnected</span>
             </button>
@@ -1234,6 +1234,14 @@
                                 <option value="en-US-DavisNeural">Davis (Casual ♂)</option>
                                 <option value="en-US-Ethan:MAI-Voice-2">Ethan (Natural ♂)</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- User Identity Setting -->
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">User ID</div>
+                        <div class="user-id-wrapper" style="width: 100%;">
+                            <input type="text" id="userIdInput" class="user-id-input" value="user_1" placeholder="Enter User ID" oninput="handleUserIdChange()" style="width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 7px 11px; color: #fff; font-size: 13px; outline: none;">
                         </div>
                     </div>
 
@@ -1372,24 +1380,6 @@
             </button>
         </div>
     </footer>
-
-    <!-- Configuration Modal -->
-    <div id="configOverlay" class="config-overlay" onclick="if(event.target === this) closeConfig()">
-        <div class="config-card">
-            <h2>Connection Settings</h2>
-            <div class="field">
-                <label for="roomInput">Room</label>
-                <input type="text" id="roomInput" value="general">
-            </div>
-            <div class="field">
-                <label for="userIdInput">User ID</label>
-                <input type="text" id="userIdInput" value="user_1">
-            </div>
-            <div class="btn-group">
-                <button class="btn-action btn-secondary" onclick="closeConfig()">Cancel</button>
-                <button id="connectToggleBtn" class="btn-action btn-primary" onclick="toggleConnectionFromModal()">Connect</button>
-            </div>
-        </div>
     </div>
 
 <script>
@@ -2473,6 +2463,27 @@
     let incomingChunks = [];
     let streamDebounce = null;
 
+        // --- User Identity Handling ---
+    function getUserId() {
+        const input = document.getElementById('userIdInput');
+        if (input && input.value.trim()) {
+            return input.value.trim();
+        }
+        return localStorage.getItem('voice_assistant_user_id') || 'user_1';
+    }
+
+    function handleUserIdChange() {
+        const val = getUserId();
+        localStorage.setItem('voice_assistant_user_id', val);
+    }
+
+    // Restore saved User ID
+    const savedUserId = localStorage.getItem('voice_assistant_user_id');
+    const userIdInput = document.getElementById('userIdInput');
+    if (userIdInput && savedUserId) {
+        userIdInput.value = savedUserId;
+    }
+
     const statusPill = document.getElementById('statusPill');
     const statusLabel = document.getElementById('statusLabel');
     const promptInput = document.getElementById('promptInput');
@@ -2480,11 +2491,6 @@
     const micBtn = document.getElementById('micBtn');
     const sysAudioBtn = document.getElementById('sysAudioBtn');
     const subtitle = document.getElementById('subtitle');
-    const configOverlay = document.getElementById('configOverlay');
-    const connectToggleBtn = document.getElementById('connectToggleBtn');
-
-    const roomInput = document.getElementById('roomInput');
-    const userIdInput = document.getElementById('userIdInput');
 
     // --- AI Spoken Voice Response Floating Display (Left Middle Screen, Auto-Vanishing) ---
     let aiVoiceVanishTimer = null;
@@ -2574,37 +2580,27 @@
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeHeaderMenu();
-            closeConfig();
+            
         }
     });
 
-    function openConfig() {
-        closeHeaderMenu();
-        configOverlay.classList.add('open');
-    }
-
-    function closeConfig() {
-        configOverlay.classList.remove('open');
-    }
-
-    function toggleConnectionFromModal() {
+    function toggleConnection() {
+        playMenuClickSound();
         if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
             disconnect();
         } else {
             connect();
         }
-        closeConfig();
     }
 
     function connect() {
-        const room = encodeURIComponent(roomInput.value.trim() || 'general');
-        const userId = encodeURIComponent(userIdInput.value.trim() || 'user_1');
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host || '127.0.0.1:8080';
-        const base = `${protocol}//${host}/ws`;
         const voiceSelect = document.getElementById('voiceSelect');
-        const selectedVoice = voiceSelect ? voiceSelect.value : 'en-US-JennyNeural';
-        const url = `${base}?room=${room}&user_id=${userId}&voice=${encodeURIComponent(selectedVoice)}`;
+        const selectedVoice = voiceSelect ? voiceSelect.value : 'en-US-JennyMultilingualNeural';
+        const userId = encodeURIComponent(getUserId());
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const base = `${protocol}//${window.location.host}/ws`;
+        const url = `${base}?user_id=${userId}&voice=${encodeURIComponent(selectedVoice)}`;
 
         statusLabel.innerText = 'Connecting...';
         subtitle.innerText = 'Connecting to assistant...';
@@ -2615,8 +2611,7 @@
 
             ws.onopen = () => {
                 statusPill.classList.add('connected');
-                statusLabel.innerText = `Room: ${roomInput.value.trim()}`;
-                connectToggleBtn.innerText = 'Disconnect';
+                statusLabel.innerText = 'Connected';
                 promptInput.disabled = false;
                 sendBtn.disabled = false;
                 if (micBtn) micBtn.disabled = false;
@@ -2691,7 +2686,6 @@
     function disconnectCleanup() {
         statusPill.classList.remove('connected');
         statusLabel.innerText = 'Disconnected';
-        connectToggleBtn.innerText = 'Connect';
         promptInput.disabled = true;
         sendBtn.disabled = true;
         if (micBtn) micBtn.disabled = true;
@@ -3057,8 +3051,8 @@
         if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
 
         const payload = {
-            room: roomInput.value.trim() || 'general',
-            content: text
+            content: text,
+            user_id: getUserId()
         };
 
         ws.send(JSON.stringify(payload));

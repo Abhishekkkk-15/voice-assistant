@@ -2,16 +2,18 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ClientMessage {
-    pub room: String,
     pub content: String,
+    #[serde(default)]
+    pub user_id: Option<String>,
     #[serde(default)]
     pub voice: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
 pub struct WsQuery {
-    pub room: String,
+    #[serde(default)]
     pub user_id: Option<String>,
+    #[serde(default)]
     pub voice: Option<String>,
 }
 

@@ -2,14 +2,9 @@ mod utlis;
 mod model;
 mod core;
 mod transports;
-use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, get, web::{self, Data}};
+use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, get, web};
 
-use utlis::session::WSSession;
-
-use std::collections::HashMap;
-use std::sync::Mutex;
-
-use crate::{model::message::{WsQuery}, transports::ws::ws_transport};
+use crate::{model::message::WsQuery, transports::ws::ws_transport};
 
 #[get("/")]
 async fn index() -> HttpResponse {
@@ -19,7 +14,7 @@ async fn index() -> HttpResponse {
 }
 
 #[get("/ws")]
-async fn ws_handler(req: HttpRequest, stream: web::Payload, data: Data<WSSession>, query: web::Query<WsQuery>) -> Result<HttpResponse, Error> {
+async fn ws_handler(req: HttpRequest, stream: web::Payload, query: web::Query<WsQuery>) -> Result<HttpResponse, Error> {
     let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
     // Allow up to 15MB frames and aggregate continuation frames
     let msg_stream = msg_stream
@@ -27,8 +22,7 @@ async fn ws_handler(req: HttpRequest, stream: web::Payload, data: Data<WSSession
         .aggregate_continuations()
         .max_continuation_size(15 * 1024 * 1024);
     println!("WebSocket connected");
-    let WsQuery { room, user_id, voice } = query.into_inner();
-    let ws_query = WsQuery { room, user_id, voice };
+    let ws_query = query.into_inner();
     actix_web::rt::spawn(async move {
         ws_transport(session, msg_stream, ws_query).await;
     });
@@ -46,12 +40,9 @@ async fn main() -> std::io::Result<()> {
 
     println!("Voice Assistant server running on http://0.0.0.0:{port}");
     println!("WebSocket endpoint on ws://0.0.0.0:{port}/ws");
-    let session: Data<WSSession> = web::Data::new(WSSession {
-        store: Mutex::new(HashMap::new()),
-    });
+
     HttpServer::new(move || {
         App::new()
-            .app_data(session.clone())
             .service(index)
             .service(ws_handler)
     })

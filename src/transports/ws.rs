@@ -2,23 +2,24 @@ use actix_ws::{AggregatedMessage, AggregatedMessageStream, Session};
 
 use crate::{core::{agent::{Agent, EXPRESSIVE_VOICE_SYSTEM_PROMPT}, pipeline::run_conversation_session}, model::{events::{AssistantEvent, UserEvent}, message::{ClientMessage, WsQuery}}};
 
-
-
 pub async fn ws_transport(
-      mut session: Session,
+    mut session: Session,
     mut msg_stream: AggregatedMessageStream,
     query: WsQuery, 
 ){
- let (inbound_tx, inbound_rx) = tokio::sync::mpsc::channel::<UserEvent>(32);
- let (outbound_tx, mut outbound_rx) = tokio::sync::mpsc::channel::<AssistantEvent>(32);
+    let (inbound_tx, inbound_rx) = tokio::sync::mpsc::channel::<UserEvent>(32);
+    let (outbound_tx, mut outbound_rx) = tokio::sync::mpsc::channel::<AssistantEvent>(32);
 
-let agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
-let current_voice = query.voice.unwrap_or_else(|| "en-US-JennyMultilingualNeural".to_string());
-tokio::spawn(async move{
-    run_conversation_session(inbound_rx, outbound_tx, agent, current_voice).await;
-});
+    let agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
+    let current_voice = query.voice.clone().unwrap_or_else(|| "en-US-JennyMultilingualNeural".to_string());
+    let user_id = query.user_id.clone().unwrap_or_else(|| "user_1".to_string());
+    println!("👤 WebSocket session initialized for user [{}] with voice [{}]", user_id, current_voice);
 
-loop {
+    tokio::spawn(async move {
+        run_conversation_session(inbound_rx, outbound_tx, agent, current_voice).await;
+    });
+
+    loop {
         tokio::select! {
             // A. INCOMING from Client WebSocket
             Some(Ok(msg)) = msg_stream.recv() => {
@@ -29,6 +30,8 @@ loop {
                                 let _ = inbound_tx.send(UserEvent::ChangeVoice(voice)).await;
                             }
                             if !parsed.content.trim().is_empty() {
+                                let sender = parsed.user_id.as_deref().unwrap_or(&user_id);
+                                println!("💬 [{}] says: {}", sender, parsed.content);
                                 let _ = inbound_tx.send(UserEvent::TextMessage(parsed.content)).await;
                             }
                         }
@@ -63,11 +66,8 @@ loop {
                         let json = serde_json::json!({ "error": err });
                         let _ = session.text(json.to_string()).await;
                     }
-                  
                 }
             }
         }
     }
-
-
 }
