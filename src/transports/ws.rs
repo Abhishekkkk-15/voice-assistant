@@ -55,10 +55,15 @@ loop {
                         let json = serde_json::json!({ "transcription": txt });
                         let _ = session.text(json.to_string()).await;
                     }
+                    AssistantEvent::AudioEnd { status } => {
+                        let json = serde_json::json!({ "status": status });
+                        let _ = session.text(json.to_string()).await;
+                    }
                     AssistantEvent::Error(err) => {
                         let json = serde_json::json!({ "error": err });
                         let _ = session.text(json.to_string()).await;
                     }
+                  
                 }
             }
         }

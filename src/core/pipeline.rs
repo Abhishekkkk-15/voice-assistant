@@ -34,6 +34,7 @@ use futures_util::StreamExt;
                         return;
                     }
                 }
+                let _ = outbound_tx.send(AssistantEvent::AudioEnd { status: "audio_end".to_string() }).await;
             }
             Err(err) => {
                 let _ = outbound_tx.send(AssistantEvent::Error(err.to_string())).await;
@@ -64,7 +65,7 @@ pub async fn run_conversation_session(
             // Check if incoming binary data is a WAV audio file from microphone or system audio
             if bin.starts_with(b"RIFF") {
                 match agent.transcribe(bin).await{
-                    Ok(text) =>{
+                    Ok(text) if !text.trim().is_empty() => {
                     let _ = outbound_tx.send(AssistantEvent::TextTranscription(text.clone())).await;
                         process_ai_turn(text, &mut agent, &outbound_tx, &current_voice).await
                     },

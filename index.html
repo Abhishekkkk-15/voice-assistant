@@ -2635,8 +2635,16 @@
                         } else if (parsed.transcription) {
                             subtitle.innerText = `You: “${parsed.transcription}”`;
                         } else if (parsed.ai_response) {
+                            incomingChunks = [];
+                            clearTimeout(streamDebounce);
                             showAiVoiceResponse(parsed.ai_response);
                             subtitle.innerText = '';
+                        } else if (parsed.status === 'audio_end') {
+                            clearTimeout(streamDebounce);
+                            if (incomingChunks.length > 0) {
+                                playStreamedAudio(incomingChunks);
+                                incomingChunks = [];
+                            }
                         } else if (parsed.status === 'tts_empty') {
                             subtitle.innerText = `⚠️ ${parsed.warning}`;
                         } else if (parsed.status === 'no_speech_detected') {
@@ -2651,9 +2659,12 @@
                     incomingChunks.push(event.data);
                     clearTimeout(streamDebounce);
                     streamDebounce = setTimeout(() => {
-                        playStreamedAudio(incomingChunks);
-                        incomingChunks = [];
-                    }, 220);
+                        if (incomingChunks.length > 0) {
+                            console.warn('Fallback timer fired for audio chunks');
+                            playStreamedAudio(incomingChunks);
+                            incomingChunks = [];
+                        }
+                    }, 2500);
                 }
             };
 

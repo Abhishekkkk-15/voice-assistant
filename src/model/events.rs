@@ -11,6 +11,8 @@ pub enum AssistantEvent{
     TextTranscription(String),
     AiResponse{text:String, emotion:String},
     AudioChunk(bytes::Bytes),
+    AudioEnd{status:String},
     Error(String)
 }
+
 
