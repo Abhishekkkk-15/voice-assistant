@@ -54,12 +54,16 @@ pub async fn ws_transport(
                     AssistantEvent::AudioChunk(bytes) => {
                         let _ = session.binary(bytes).await;
                     }
-                    AssistantEvent::TextTranscription(txt) => {
-                        let json = serde_json::json!({ "transcription": txt });
+                    AssistantEvent::SentenceEnd => {
+                        let json = serde_json::json!({ "status": "sentence_end" });
                         let _ = session.text(json.to_string()).await;
                     }
                     AssistantEvent::AudioEnd { status } => {
                         let json = serde_json::json!({ "status": status });
+                        let _ = session.text(json.to_string()).await;
+                    }
+                    AssistantEvent::TextTranscription(txt) => {
+                        let json = serde_json::json!({ "transcription": txt });
                         let _ = session.text(json.to_string()).await;
                     }
                     AssistantEvent::Error(err) => {

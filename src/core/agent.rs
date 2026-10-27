@@ -67,6 +67,7 @@ impl Agent {
         let config = AppConfig::global();
         let request = CreateChatCompletionRequestArgs::default()
             .model(&config.completion_model)
+            .stream(true)
             .messages(self.history.clone())
             .build()?;
 
@@ -86,26 +87,29 @@ impl Agent {
     }
 
     // stream 
-    pub async fn generation_stream(&mut self, text: String) ->Result<Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>, OpenAIError>{
+    pub async fn generation_stream(&mut self, text: String) -> Result<Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>, OpenAIError> {
         self.history.push(ChatCompletionRequestUserMessage::from(text).into());
         let config = AppConfig::global();
         let result = async {
-        let request = CreateChatCompletionRequestArgs::default()
-            .model(&config.completion_model)
-            .messages(self.history.clone())
-            .build()?;
+            let request = CreateChatCompletionRequestArgs::default()
+                .model(&config.completion_model)
+                .messages(self.history.clone())
+                .stream(true)
+                .build()?;
 
-        self.client.chat().create_stream(request).await
+            self.client.chat().create_stream(request).await
+        }
+        .await;
+
+        match result {
+            Ok(res) => Ok(Box::pin(res)),
+            Err(err) => Err(err),
+        }
     }
-    .await;
 
-    match result{
-        Ok(res) => Ok(Box::pin(res)),
-        Err(err) => Err(err)
+    pub fn record_assistant_response(&mut self, text: String) {
+        self.history.push(ChatCompletionRequestAssistantMessage::from(text).into());
     }
-
-    }
-
 }
 
 // async fn sd() -> Result<(), Box<dyn std::error::Error>> {

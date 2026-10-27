@@ -1972,13 +1972,11 @@
             audioSourceNode.connect(audioCtx.destination);
 
             persistentAudio.onended = () => {
-                isAudioPlaying = false;
-                // Voice playback stopped: wait exactly 2 seconds before vanishing
-                scheduleAiVoiceVanish(2000);
+                handleSentenceAudioEnded();
             };
-            persistentAudio.onerror = () => {
-                isAudioPlaying = false;
-                scheduleAiVoiceVanish(2000);
+            persistentAudio.onerror = (e) => {
+                console.error('persistentAudio playback error:', e);
+                handleSentenceAudioEnded();
             };
         }
         if (audioCtx.state === 'suspended') {
@@ -2460,7 +2458,11 @@
 
     // --- WebSocket & Audio Streaming Pipeline ---
     let ws = null;
-    let incomingChunks = [];
+    let currentSentenceChunks = [];
+    let audioQueue = [];
+    let isPlayingSentence = false;
+    let isStreamCompleted = false;
+    let activeAudioUrl = null;
     let streamDebounce = null;
 
         // --- User Identity Handling ---
@@ -2630,18 +2632,21 @@
                         } else if (parsed.transcription) {
                             subtitle.innerText = `You: “${parsed.transcription}”`;
                         } else if (parsed.ai_response) {
-                            incomingChunks = [];
-                            clearTimeout(streamDebounce);
                             showAiVoiceResponse(parsed.ai_response);
                             subtitle.innerText = '';
+                        } else if (parsed.status === 'sentence_end') {
+                            enqueueCurrentSentence();
                         } else if (parsed.status === 'audio_end') {
-                            clearTimeout(streamDebounce);
-                            if (incomingChunks.length > 0) {
-                                playStreamedAudio(incomingChunks);
-                                incomingChunks = [];
+                            isStreamCompleted = true;
+                            if (currentSentenceChunks.length > 0) {
+                                enqueueCurrentSentence();
+                            } else if (!isPlayingSentence && audioQueue.length === 0) {
+                                isAudioPlaying = false;
+                                scheduleAiVoiceVanish(2000);
                             }
                         } else if (parsed.status === 'tts_empty') {
-                            subtitle.innerText = `⚠️ ${parsed.warning}`;
+                            subtitle.innerText = `⚠️ ${parsed.warning || 'Voice synthesis produced no audio.'}`;
+                            scheduleAiVoiceVanish(2000);
                         } else if (parsed.status === 'no_speech_detected') {
                             subtitle.innerText = 'No clear speech detected. (Make sure you speak or play audio with clear dialogue)';
                         } else if (parsed.error) {
@@ -2649,17 +2654,15 @@
                         }
                     } catch (_) {}
                 } else if (event.data instanceof ArrayBuffer) {
-                    // Audio chunks streaming in from server: ensure vanish timer is cleared
                     clearAiVoiceVanishTimer();
-                    incomingChunks.push(event.data);
+                    currentSentenceChunks.push(event.data);
                     clearTimeout(streamDebounce);
                     streamDebounce = setTimeout(() => {
-                        if (incomingChunks.length > 0) {
-                            console.warn('Fallback timer fired for audio chunks');
-                            playStreamedAudio(incomingChunks);
-                            incomingChunks = [];
+                        if (currentSentenceChunks.length > 0) {
+                            console.warn('Fallback timer fired for pending audio chunks');
+                            enqueueCurrentSentence();
                         }
-                    }, 2500);
+                    }, 3000);
                 }
             };
 
@@ -2691,7 +2694,7 @@
         if (micBtn) micBtn.disabled = true;
         subtitle.innerText = 'Disconnected. Click above to connect.';
         subtitle.classList.add('muted');
-        isAudioPlaying = false;
+        resetAudioQueue();
     }
 
     
@@ -2707,6 +2710,7 @@
     }
 
     async function startSystemAudio() {
+        resetAudioQueue();
         ensureAudioContext();
         try {
             // Request system/tab audio via browser getDisplayMedia
@@ -2825,6 +2829,7 @@
     }
 
     async function startMicrophone() {
+        resetAudioQueue();
         await ensureAudioContext();
         if (audioCtx && audioCtx.state === 'suspended') {
             await audioCtx.resume();
@@ -3050,6 +3055,8 @@
         const text = promptInput.value.trim();
         if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
 
+        resetAudioQueue();
+
         const payload = {
             content: text,
             user_id: getUserId()
@@ -3058,49 +3065,112 @@
         ws.send(JSON.stringify(payload));
         subtitle.innerText = `“${text}”`;
         promptInput.value = '';
-        incomingChunks = [];
     }
 
-    function playStreamedAudio(chunks) {
-        if (!chunks || chunks.length === 0) return;
+    function enqueueCurrentSentence() {
+        clearTimeout(streamDebounce);
+        if (!currentSentenceChunks || currentSentenceChunks.length === 0) return;
 
         let totalLength = 0;
-        for (const c of chunks) {
+        for (const c of currentSentenceChunks) {
             totalLength += (c.byteLength || c.size || 0);
         }
 
         if (totalLength === 0) {
-            console.warn('Received empty (0-byte) audio payload from TTS.');
-            subtitle.innerText = '⚠️ Selected voice cannot pronounce this text/language. Please select a Multilingual or Hindi voice!';
-            scheduleAiVoiceVanish(2000);
+            currentSentenceChunks = [];
             return;
         }
 
-        ensureAudioContext();
-        clearAiVoiceVanishTimer();
+        const audioBlob = new Blob(currentSentenceChunks, { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        currentSentenceChunks = [];
+        audioQueue.push(audioUrl);
+        playNextSentenceInQueue();
+    }
 
-        if (persistentAudio._currentUrl) {
-            URL.revokeObjectURL(persistentAudio._currentUrl);
+    async function playNextSentenceInQueue() {
+        if (isPlayingSentence) {
+            return;
         }
 
-        const audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        persistentAudio._currentUrl = audioUrl;
+        if (audioQueue.length === 0) {
+            if (isStreamCompleted) {
+                isAudioPlaying = false;
+                scheduleAiVoiceVanish(2000);
+            }
+            return;
+        }
 
-        persistentAudio.src = audioUrl;
+        const nextUrl = audioQueue.shift();
+        if (!nextUrl) return;
+
+        await ensureAudioContext();
+        clearAiVoiceVanishTimer();
+
+        if (activeAudioUrl) {
+            URL.revokeObjectURL(activeAudioUrl);
+            activeAudioUrl = null;
+        }
+
+        activeAudioUrl = nextUrl;
+        isPlayingSentence = true;
         isAudioPlaying = true;
         subtitle.innerText = '';
 
+        persistentAudio.src = nextUrl;
         persistentAudio.play().catch(e => {
             console.warn('Playback error / autoplay blocked:', e);
             subtitle.innerText = 'Click anywhere to enable audio playback.';
             const resumeHandler = () => {
                 ensureAudioContext();
-                persistentAudio.play();
+                persistentAudio.play().catch(() => {});
                 document.removeEventListener('click', resumeHandler);
             };
-            document.addEventListener('click', resumeHandler);
+            document.addEventListener('click', resumeHandler, { once: true });
         });
+    }
+
+    function handleSentenceAudioEnded() {
+        isPlayingSentence = false;
+        if (activeAudioUrl) {
+            URL.revokeObjectURL(activeAudioUrl);
+            activeAudioUrl = null;
+        }
+
+        if (audioQueue.length > 0) {
+            playNextSentenceInQueue();
+        } else if (isStreamCompleted) {
+            isAudioPlaying = false;
+            scheduleAiVoiceVanish(2000);
+        } else {
+            isAudioPlaying = false;
+        }
+    }
+
+    function resetAudioQueue() {
+        clearTimeout(streamDebounce);
+        if (persistentAudio) {
+            persistentAudio.pause();
+            persistentAudio.currentTime = 0;
+        }
+        if (activeAudioUrl) {
+            URL.revokeObjectURL(activeAudioUrl);
+            activeAudioUrl = null;
+        }
+        while (audioQueue.length > 0) {
+            const url = audioQueue.shift();
+            if (url) URL.revokeObjectURL(url);
+        }
+        currentSentenceChunks = [];
+        isPlayingSentence = false;
+        isStreamCompleted = false;
+        isAudioPlaying = false;
+    }
+
+    function playStreamedAudio(chunks) {
+        if (!chunks || chunks.length === 0) return;
+        currentSentenceChunks = chunks;
+        enqueueCurrentSentence();
     }
 </script>
 

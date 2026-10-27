@@ -1,18 +1,16 @@
 #[derive(Debug)]
-pub enum UserEvent{
+pub enum UserEvent {
     TextMessage(String),
     AudioChunk(Vec<u8>),
-    ChangeVoice(String)
+    ChangeVoice(String),
 }
-
 
 #[derive(Debug)]
-pub enum AssistantEvent{
+pub enum AssistantEvent {
     TextTranscription(String),
-    AiResponse{text:String, emotion:String},
+    AiResponse { text: String, emotion: String },
     AudioChunk(bytes::Bytes),
-    AudioEnd{status:String},
-    Error(String)
+    SentenceEnd,
+    AudioEnd { status: String },
+    Error(String),
 }
-
-
