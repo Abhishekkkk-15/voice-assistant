@@ -3,10 +3,11 @@ use std::pin::Pin;
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
-use async_openai::types::chat::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs, CreateChatCompletionResponse, CreateChatCompletionStreamResponse};
+use async_openai::types::chat::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionTool, CreateChatCompletionRequestArgs, CreateChatCompletionResponse, CreateChatCompletionStreamResponse, FunctionObjectArgs};
 
 use async_openai::types::completions::{CreateCompletionRequestArgs, CreateCompletionResponse};
 use futures_util::Stream;
+use serde_json::json;
 use crate::core::audio::Audio;
 use crate::utlis::config::AppConfig;
 use bytes;
@@ -29,7 +30,8 @@ pub struct Agent {
     /// System prompt setting the assistant's personality
     system_prompt: String,
     /// The sliding window memory of the conversation
-    history: Vec<ChatCompletionRequestMessage>,
+    pub history: Vec<ChatCompletionRequestMessage>,
+    pub tools: Option<Vec<i128>>
 }
 
 impl Agent {
@@ -44,6 +46,7 @@ impl Agent {
             system_prompt: system_prompt.to_string(),
             history: Vec::new(),
             audio_client: Audio::new(),
+            tools:None
         };
 
         agent.setup_history();
@@ -67,8 +70,26 @@ impl Agent {
         let config = AppConfig::global();
         let request = CreateChatCompletionRequestArgs::default()
             .model(&config.completion_model)
-            .stream(true)
             .messages(self.history.clone())
+            .tools(ChatCompletionTool {
+            function: FunctionObjectArgs::default()
+                .name("get_current_weather")
+                .description("Get the current weather in a given location")
+                .parameters(json!({
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "The city and state, e.g. San Francisco, CA",
+                        },
+                        "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
+                    },
+                    "required": ["location", "unit"],
+                    "additionalProperties": false
+                }))
+                .strict(true)
+                .build()?,
+        })
             .build()?;
 
         let res = self.client.chat().create(request).await;
