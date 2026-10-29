@@ -47,8 +47,6 @@ pub async fn agent_loop(mut agent:Agent, user_input:String) -> Result<(),  Box<d
         }
 
 
-                    
-
     }
 
     Ok(())
