@@ -39,11 +39,12 @@ impl MessagesRegistry {
     pub fn assistant_with_tool_calls(
         &mut self,
         text: Option<String>,
-        tool_calls: Vec<ChatCompletionMessageToolCalls>,
+        tool_calls: &Vec<ChatCompletionMessageToolCalls>,
     ) {
         let mut msg = ChatCompletionRequestAssistantMessage::default();
         msg.content = text.map(Into::into);
-        msg.tool_calls = Some(tool_calls);
+        msg.tool_calls = Some(tool_calls.clone());
+        
         self.messages.push(msg.into());
     }
 

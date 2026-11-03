@@ -1,52 +1,131 @@
 use std::{collections::HashMap};
 
-use async_openai::types::{chat::{ChatCompletionMessageToolCall, ChatCompletionMessageToolCalls, ChatCompletionRequestMessage, ChatCompletionRequestUserMessage}, chatkit::UserMessageContent};
+use async_openai::types::{chat::{ChatCompletionMessageToolCall, ChatCompletionMessageToolCalls, ChatCompletionRequestMessage, ChatCompletionRequestUserMessage, FunctionCall}, chatkit::UserMessageContent};
+use futures_util::StreamExt;
 use serde_json::{Value, json};
-use tokio::task::JoinHandle;
+use tokio::{sync::mpsc, task::JoinHandle};
 // use tokio::sync::mpsc::{channel};
-use crate::core::agent::Agent;
+use crate::{core::{agent::Agent, messages::MessagesRegistry}, model::events::AssistantEvent};
 use rand::{rng, seq::IndexedRandom};
 
-pub async fn agent_loop(mut agent:Agent, user_input:String) -> Result<(),  Box<dyn std::error::Error>>{
+#[derive(Debug,Clone)]
+struct PendingToolCall {
+        id: String,
+        name: String,
+        arguments: String,
+}
+
+impl From<PendingToolCall> for ChatCompletionMessageToolCalls {
+        fn from(tool: PendingToolCall) -> Self {
+            ChatCompletionMessageToolCalls::Function(ChatCompletionMessageToolCall {
+                id: tool.id,
+                function: FunctionCall {
+                    name: tool.name,
+                    arguments: tool.arguments,
+                },
+            })
+        }
+    }
+
+
+pub async fn agent_loop(mut agent:Agent, user_input:String,outbound_tx: mpsc::Sender<AssistantEvent>, mut memory:MessagesRegistry) -> Result<(),  Box<dyn std::error::Error>>{
 
 
     let should_break = false;
-
+    memory.user(user_input.clone());
+    
     loop {
-        let loop_res = agent.generation(user_input.clone()).await?;
-        let tool_call = loop_res.choices.first().ok_or("no_choics")?.message.clone();
+        let mut llm_stream = match agent.generation_stream_for_agent( memory.get_messages()).await{
+             Ok(stream) => stream,
+        Err(err) => {
+            eprintln!("LLM Stream Error: {err:?}");
+            let _ = outbound_tx.send(AssistantEvent::Error(err.to_string())).await;
+            return Ok(());
+        }
+        };
 
-        if tool_call.tool_calls.is_none(){
-            
-            break;
+        let mut tool_calls_vec:Vec<PendingToolCall> = Vec::new();
+        let mut assistant_text: String = String::new();
+        while let Some(stream_res) = llm_stream.next().await{
+            match stream_res {
+                Ok(chunk) =>{
+                    for choice in chunk.choices{
+                        if let Some(content) = choice.delta.content{
+                                // outbound_tx.send(content)
+                                println!("{content}");
+                                assistant_text += &content;
+                        }
+                        if let Some(tool_chunk) = choice.delta.tool_calls{
+                            for tool in tool_chunk{
+                                let idx  = tool.index as usize;
+                                if idx >= tool_calls_vec.len(){
+                                    tool_calls_vec.push(PendingToolCall { id: tool.id.unwrap().clone(), 
+                                    name:tool.function.as_ref().and_then(|f| f.name.clone()).unwrap_or_default(),
+                                    arguments: tool.function.as_ref().and_then(|f| f.arguments.clone()).unwrap_or_default() });
+                                }else{
+                                    let in_vec = &tool_calls_vec[idx];
+                                    if let Some(tool_id) = tool.id{
+                                        tool_calls_vec[idx].id += &tool_id;
+                                    }else if let Some(tool_fn) = &tool.function{
+                                            if let Some(fn_name) = &tool_fn.name{
+                                        tool_calls_vec[idx].name += &fn_name;
+                                            }
+                                            if let Some(fn_args) = &tool_fn.arguments{
+                                        tool_calls_vec[idx].arguments += &fn_args;
+                                            }
+                                    }
+                                    // tool_calls_vec.push(value);
+                                }
+                            };
+                        }
+                    }
+                },
+                Err(err) =>{}
+            }
         }
 
-        if let Some(tool_calls) = tool_call.tool_calls{
-            let mut handles:Vec<(JoinHandle<Value>,ChatCompletionMessageToolCall)> = Vec::new();
+        if tool_calls_vec.is_empty() {
+        if !assistant_text.trim().is_empty() {
+            memory.assistant(assistant_text);
+        }
+        break;
+    }
 
-            for tool_call_enum in tool_calls{
-                  if let ChatCompletionMessageToolCalls::Function(tool_call) = tool_call_enum {
-                        let name = tool_call.function.name.clone();
-                        let args = tool_call.function.arguments.clone();
+        // let res_content = String::from(&res.choices[0].message.clone().content.unwrap());
+        let open_ai_tools: Vec<ChatCompletionMessageToolCalls> = tool_calls_vec
+        .iter()
+        .cloned()
+        .map(Into::into)
+        .collect();
+    let text_opt = if assistant_text.trim().is_empty() { None } else { Some(assistant_text) };
+        memory.assistant_with_tool_calls(text_opt,&open_ai_tools);
+      
+
+            let mut handles= Vec::new();
+
+            for tool_call in tool_calls_vec{
+                //   if let ChatCompletionMessageToolCalls::Function(tool_call) = tool_call_enum {
+                        let name = tool_call.name.clone();
+                        let args = tool_call.arguments.clone();
                         let tool_call_clone = tool_call.clone();
-
+                            println!("\n🔧 Calling tool: {} with args: {}", tool_call.name, tool_call.arguments);
                         let handle: tokio::task::JoinHandle<Value> = tokio::spawn(async move {call_fn(&name, &args).await.unwrap_or_default()});
-                        handles.push((handle, tool_call_clone));
-                  };
+                        handles.push((handle, tool_call));
+                //   };
 
             }
-
+            
             let mut function_responses = Vec::new();
-
+            
             for (handle, tool_call_clone) in handles{
-                 if let Ok(response_content) = handle.await {
+                if let Ok(response_content) = handle.await {
+                     println!("📊 Tool result: {}\n", response_content);
                 function_responses.push((tool_call_clone, response_content));
             }
             }
-
-        }
-
-
+            for f in function_responses.iter() {
+                memory.tool_response(&f.0.id, f.1.to_string());
+            }
     }
 
     Ok(())

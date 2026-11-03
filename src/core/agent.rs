@@ -22,7 +22,7 @@ Example:
 
 pub struct Agent {
     /// The core OpenAI client used to communicate with all endpoints
-    client: Client<OpenAIConfig>,
+    pub client: Client<OpenAIConfig>,
 
     // Custom Audio Client
     pub audio_client: Audio,
@@ -65,12 +65,11 @@ impl Agent {
         self.audio_client.stt(audio_data).await
     }
     // one shot completion
-    pub async fn generation(&mut self, text: String) -> Result<CreateChatCompletionResponse, OpenAIError> {
-        self.history.push(ChatCompletionRequestUserMessage::from(text).into());
+    pub async fn generation(&mut self, text: String, messages:&[ChatCompletionRequestMessage]) -> Result<CreateChatCompletionResponse, OpenAIError> {
         let config = AppConfig::global();
         let request = CreateChatCompletionRequestArgs::default()
             .model(&config.completion_model)
-            .messages(self.history.clone())
+            .messages(messages)
             .tools(ChatCompletionTool {
             function: FunctionObjectArgs::default()
                 .name("get_current_weather")
@@ -95,9 +94,7 @@ impl Agent {
         let res = self.client.chat().create(request).await;
         match res {
             Ok(res) => {
-                if let Some(val) = &res.choices[0].message.content {
-                    self.history.push(ChatCompletionRequestAssistantMessage::from(val.clone()).into());
-                }
+               
                 Ok(res)
             }
             Err(e) => {
@@ -116,6 +113,43 @@ impl Agent {
                 .model(&config.completion_model)
                 .messages(self.history.clone())
                 .stream(true)
+                .build()?;
+
+            self.client.chat().create_stream(request).await
+        }
+        .await;
+
+        match result {
+            Ok(res) => Ok(Box::pin(res)),
+            Err(err) => Err(err),
+        }
+    }
+    pub async fn generation_stream_for_agent(&mut self, messages:&[ChatCompletionRequestMessage]) -> Result<Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>, OpenAIError> {
+        let config = AppConfig::global();
+        let result = async {
+            let request = CreateChatCompletionRequestArgs::default()
+                .model(&config.completion_model)
+                .messages(messages)
+                .stream(true)
+                .tools(ChatCompletionTool {
+            function: FunctionObjectArgs::default()
+                .name("get_current_weather")
+                .description("Get the current weather in a given location")
+                .parameters(json!({
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "The city and state, e.g. San Francisco, CA",
+                        },
+                        "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
+                    },
+                    "required": ["location", "unit"],
+                    "additionalProperties": false
+                }))
+                .strict(true)
+                .build()?,
+        })
                 .build()?;
 
             self.client.chat().create_stream(request).await
