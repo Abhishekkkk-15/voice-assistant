@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use crate::utlis::{config::AppConfig, parser::{build_ssml, parse_speech_segments}};
 
+#[derive(Clone)]
 pub struct Audio {
     req_client: Client,
 }

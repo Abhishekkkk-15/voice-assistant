@@ -19,11 +19,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Type 'exit' to quit.");
     println!("==================================================\n");
 
-    let agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
-    let memory = MessagesRegistry::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
+    let mut agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
+    let mut memory = MessagesRegistry::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
 
     // Channel for events emitted by agent loop
     let (outbound_tx, mut outbound_rx) = mpsc::channel::<AssistantEvent>(32);
+    let (tts_tx, mut tts_rx) = mpsc::channel::<String>(32);
+
+    // Background listener for TTS clauses
+    tokio::spawn(async move {
+        while let Some(clause) = tts_rx.recv().await {
+            println!("🔊 [TTS Clause]: {clause}");
+        }
+    });
 
     // Background listener for events
     tokio::spawn(async move {
@@ -58,10 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("\n⏳ Agent running loop...\n");
 
-        let agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
-        let memory_clone = memory.clone();
-
-        if let Err(e) = agent_loop(agent, trimmed.to_string(), outbound_tx.clone(), memory_clone).await {
+        if let Err(e) = agent_loop(&mut agent, trimmed.to_string(), outbound_tx.clone(), &mut memory, &tts_tx).await {
             eprintln!("Error in agent loop: {e}");
         }
 

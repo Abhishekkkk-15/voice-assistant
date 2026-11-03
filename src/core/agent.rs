@@ -3,14 +3,19 @@ use std::pin::Pin;
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
-use async_openai::types::chat::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionTool, CreateChatCompletionRequestArgs, CreateChatCompletionResponse, CreateChatCompletionStreamResponse, FunctionObjectArgs};
+use async_openai::types::chat::{
+    ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage,
+    ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionTool,
+    CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
+    CreateChatCompletionStreamResponse, FunctionObjectArgs,
+};
 
-use async_openai::types::completions::{CreateCompletionRequestArgs, CreateCompletionResponse};
-use futures_util::Stream;
-use serde_json::json;
 use crate::core::audio::Audio;
 use crate::utlis::config::AppConfig;
+use async_openai::types::completions::{CreateCompletionRequestArgs, CreateCompletionResponse};
 use bytes;
+use futures_util::Stream;
+use serde_json::json;
 
 pub const EXPRESSIVE_VOICE_SYSTEM_PROMPT: &str = r#"You are an expressive, empathetic, and concise voice assistant (Your generated text will be given a TTS model).
 Express your emotional tone naturally throughout your response using bracketed emotion tags before sentences or clauses.
@@ -31,7 +36,7 @@ pub struct Agent {
     system_prompt: String,
     /// The sliding window memory of the conversation
     pub history: Vec<ChatCompletionRequestMessage>,
-    pub tools: Option<Vec<i128>>
+    pub tools: Option<Vec<i128>>,
 }
 
 impl Agent {
@@ -41,12 +46,12 @@ impl Agent {
             client: Client::with_config(
                 OpenAIConfig::new()
                     .with_api_base(config.openai_base_url.clone())
-                    .with_api_key(config.openai_api_key.clone())
+                    .with_api_key(config.openai_api_key.clone()),
             ),
             system_prompt: system_prompt.to_string(),
             history: Vec::new(),
             audio_client: Audio::new(),
-            tools:None
+            tools: None,
         };
 
         agent.setup_history();
@@ -54,10 +59,15 @@ impl Agent {
     }
 
     fn setup_history(&mut self) {
-        self.history.push(ChatCompletionRequestSystemMessage::from(self.system_prompt.as_str()).into());
+        self.history
+            .push(ChatCompletionRequestSystemMessage::from(self.system_prompt.as_str()).into());
     }
 
-    pub async fn speech_generation(&self, text: &str, voice: &str) -> Pin<Box<dyn Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
+    pub async fn speech_generation(
+        &self,
+        text: &str,
+        voice: &str,
+    ) -> Pin<Box<dyn Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>> {
         self.audio_client.tts(text, voice).await
     }
 
@@ -65,38 +75,39 @@ impl Agent {
         self.audio_client.stt(audio_data).await
     }
     // one shot completion
-    pub async fn generation(&mut self, text: String, messages:&[ChatCompletionRequestMessage]) -> Result<CreateChatCompletionResponse, OpenAIError> {
+    pub async fn generation(
+        &mut self,
+        text: String,
+        messages: &[ChatCompletionRequestMessage],
+    ) -> Result<CreateChatCompletionResponse, OpenAIError> {
         let config = AppConfig::global();
         let request = CreateChatCompletionRequestArgs::default()
             .model(&config.completion_model)
             .messages(messages)
             .tools(ChatCompletionTool {
-            function: FunctionObjectArgs::default()
-                .name("get_current_weather")
-                .description("Get the current weather in a given location")
-                .parameters(json!({
-                    "type": "object",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "The city and state, e.g. San Francisco, CA",
+                function: FunctionObjectArgs::default()
+                    .name("get_current_weather")
+                    .description("Get the current weather in a given location")
+                    .parameters(json!({
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The city and state, e.g. San Francisco, CA",
+                            },
+                            "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
                         },
-                        "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
-                    },
-                    "required": ["location", "unit"],
-                    "additionalProperties": false
-                }))
-                .strict(true)
-                .build()?,
-        })
+                        "required": ["location", "unit"],
+                        "additionalProperties": false
+                    }))
+                    .strict(true)
+                    .build()?,
+            })
             .build()?;
 
         let res = self.client.chat().create(request).await;
         match res {
-            Ok(res) => {
-               
-                Ok(res)
-            }
+            Ok(res) => Ok(res),
             Err(e) => {
                 eprintln!("OpenAI Chat Error: {e:?}");
                 Err(e)
@@ -104,9 +115,16 @@ impl Agent {
         }
     }
 
-    // stream 
-    pub async fn generation_stream(&mut self, text: String) -> Result<Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>, OpenAIError> {
-        self.history.push(ChatCompletionRequestUserMessage::from(text).into());
+    // stream
+    pub async fn generation_stream(
+        &mut self,
+        text: &str,
+    ) -> Result<
+        Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>,
+        OpenAIError,
+    > {
+        self.history
+            .push(ChatCompletionRequestUserMessage::from(text).into());
         let config = AppConfig::global();
         let result = async {
             let request = CreateChatCompletionRequestArgs::default()
@@ -124,7 +142,13 @@ impl Agent {
             Err(err) => Err(err),
         }
     }
-    pub async fn generation_stream_for_agent(&mut self, messages:&[ChatCompletionRequestMessage]) -> Result<Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>, OpenAIError> {
+    pub async fn generation_stream_for_agent(
+        &mut self,
+        messages: &[ChatCompletionRequestMessage],
+    ) -> Result<
+        Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>,
+        OpenAIError,
+    > {
         let config = AppConfig::global();
         let result = async {
             let request = CreateChatCompletionRequestArgs::default()
@@ -132,24 +156,24 @@ impl Agent {
                 .messages(messages)
                 .stream(true)
                 .tools(ChatCompletionTool {
-            function: FunctionObjectArgs::default()
-                .name("get_current_weather")
-                .description("Get the current weather in a given location")
-                .parameters(json!({
-                    "type": "object",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "The city and state, e.g. San Francisco, CA",
-                        },
-                        "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
-                    },
-                    "required": ["location", "unit"],
-                    "additionalProperties": false
-                }))
-                .strict(true)
-                .build()?,
-        })
+                    function: FunctionObjectArgs::default()
+                        .name("get_current_weather")
+                        .description("Get the current weather in a given location")
+                        .parameters(json!({
+                            "type": "object",
+                            "properties": {
+                                "location": {
+                                    "type": "string",
+                                    "description": "The city and state, e.g. San Francisco, CA",
+                                },
+                                "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
+                            },
+                            "required": ["location", "unit"],
+                            "additionalProperties": false
+                        }))
+                        .strict(true)
+                        .build()?,
+                })
                 .build()?;
 
             self.client.chat().create_stream(request).await
@@ -163,7 +187,8 @@ impl Agent {
     }
 
     pub fn record_assistant_response(&mut self, text: String) {
-        self.history.push(ChatCompletionRequestAssistantMessage::from(text).into());
+        self.history
+            .push(ChatCompletionRequestAssistantMessage::from(text).into());
     }
 }
 
