@@ -76,7 +76,6 @@ pub async fn agent_loop(
                             if let Some(clause) = chunker.push(&content) {
                                 let _ = tts_tx.send(clause).await?;
                             };
-                            println!("{content}");
                         }
                         if let Some(tool_chunk) = choice.delta.tool_calls {
                             for tool in tool_chunk {
@@ -96,7 +95,6 @@ pub async fn agent_loop(
                                             .unwrap_or_default(),
                                     });
                                 } else {
-                                    let in_vec = &tool_calls_vec[idx];
                                     if let Some(tool_id) = tool.id {
                                         tool_calls_vec[idx].id += &tool_id;
                                     } else if let Some(tool_fn) = &tool.function {
@@ -113,8 +111,8 @@ pub async fn agent_loop(
                     }
                 }
                 Err(err) => {
-                    outbound_tx
-                        .send(AssistantEvent::Error("Error in tool call ".to_string()))
+                    let _ = outbound_tx
+                        .send(AssistantEvent::Error(err.to_string()))
                         .await;
                 }
             }
@@ -170,6 +168,7 @@ pub async fn agent_loop(
             //   if let ChatCompletionMessageToolCalls::Function(tool_call) = tool_call_enum {
             let name = tool_call.name.clone();
             let args = tool_call.arguments.clone();
+            println!("Tool call {name}, args {args}");
             let handle: tokio::task::JoinHandle<Value> =
                 tokio::spawn(async move { call_fn(&name, &args).await.unwrap_or_default() });
             handles.push((handle, tool_call));
