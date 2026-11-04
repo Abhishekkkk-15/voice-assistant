@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use async_openai::types::{
     chat::{
@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use tokio::{sync::mpsc, task::JoinHandle};
 // use tokio::sync::mpsc::{channel};
 use crate::{
-    core::{agent::Agent, messages::MessagesRegistry},
+    core::{agent::Agent, messages::MessagesRegistry, tools::tool_registory::ToolRegistory},
     model::events::AssistantEvent,
     utlis::llm_buffer::TextChunker,
 };
@@ -43,15 +43,17 @@ pub async fn agent_loop(
     outbound_tx: mpsc::Sender<AssistantEvent>,
     memory: &mut MessagesRegistry,
     tts_tx: &mpsc::Sender<String>,
+    tool_registory:Arc<ToolRegistory>
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut chunker = TextChunker::new();
 
     // let should_break = false;
     memory.user(user_input.clone());
-
+    let tool_reg_cloned_agent = Arc::clone(&tool_registory);
     loop {
+        
         let mut llm_stream = match agent
-            .generation_stream_for_agent(memory.get_messages())
+            .generation_stream_for_agent(memory.get_messages(), &tool_reg_cloned_agent)
             .await
         {
             Ok(stream) => stream,
@@ -169,8 +171,9 @@ pub async fn agent_loop(
             let name = tool_call.name.clone();
             let args = tool_call.arguments.clone();
             println!("Tool call {name}, args {args}");
+            let tool_reg_cloned = Arc::clone(&tool_registory);
             let handle: tokio::task::JoinHandle<Value> =
-                tokio::spawn(async move { call_fn(&name, &args).await.unwrap_or_default() });
+                tokio::spawn(async move { tool_reg_cloned.execute(&name, &args).await.unwrap_or_default() });
             handles.push((handle, tool_call));
             //   };
         }
@@ -188,36 +191,4 @@ pub async fn agent_loop(
     }
 }
 
-async fn call_fn(name: &str, args: &str) -> Result<Value, Box<dyn std::error::Error>> {
-    let mut available_functions: HashMap<&str, fn(&str, &str) -> serde_json::Value> =
-        HashMap::new();
-    available_functions.insert("get_current_weather", get_current_weather);
 
-    let function_args: serde_json::Value = args.parse().unwrap();
-
-    let location = function_args["location"].as_str().unwrap();
-    let unit = function_args["unit"].as_str().unwrap_or("fahrenheit");
-    let function = available_functions.get(name).unwrap();
-    let function_response = function(location, unit);
-    Ok(function_response)
-}
-
-fn get_current_weather(location: &str, unit: &str) -> serde_json::Value {
-    let mut rng = rng();
-    let temperature: i32 = rand::random_range(20..=55);
-
-    let forecasts = [
-        "sunny", "cloudy", "overcast", "rainy", "windy", "foggy", "snowy",
-    ];
-
-    let forecast = forecasts.choose(&mut rng).unwrap_or(&"sunny");
-
-    let weather_info = json!({
-        "location": location,
-        "temperature": temperature.to_string(),
-        "unit": unit,
-        "forecast": forecast
-    });
-
-    weather_info
-}

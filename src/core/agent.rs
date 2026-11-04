@@ -4,13 +4,11 @@ use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
 use async_openai::types::chat::{
-    ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage,
-    ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionTool,
-    CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
-    CreateChatCompletionStreamResponse, FunctionObjectArgs,
+    ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionTool, ChatCompletionTools, CreateChatCompletionRequestArgs, CreateChatCompletionResponse, CreateChatCompletionStreamResponse, FunctionObjectArgs
 };
 
 use crate::core::audio::Audio;
+use crate::core::tools::tool_registory::ToolRegistory;
 use crate::utlis::config::AppConfig;
 use async_openai::types::completions::{CreateCompletionRequestArgs, CreateCompletionResponse};
 use bytes;
@@ -146,6 +144,7 @@ impl Agent {
     pub async fn generation_stream_for_agent(
         &mut self,
         messages: &[ChatCompletionRequestMessage],
+        tools_registory:&ToolRegistory
     ) -> Result<
         Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>,
         OpenAIError,
@@ -156,25 +155,7 @@ impl Agent {
                 .model(&config.completion_model)
                 .messages(messages)
                 .stream(true)
-                .tools(ChatCompletionTool {
-                    function: FunctionObjectArgs::default()
-                        .name("get_current_weather")
-                        .description("Get the current weather in a given location")
-                        .parameters(json!({
-                            "type": "object",
-                            "properties": {
-                                "location": {
-                                    "type": "string",
-                                    "description": "The city and state, e.g. San Francisco, CA",
-                                },
-                                "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
-                            },
-                            "required": ["location", "unit"],
-                            "additionalProperties": false
-                        }))
-                        .strict(true)
-                        .build()?,
-                })
+                .tools(tools_registory.to_openai_tools().into_iter().map(ChatCompletionTools::Function).collect::<Vec<_>>())
                 .build()?;
 
             self.client.chat().create_stream(request).await

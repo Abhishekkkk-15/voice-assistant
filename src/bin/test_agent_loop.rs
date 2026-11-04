@@ -1,10 +1,10 @@
-use std::io::{self, Write};
+use std::{io::{self, Write}, sync::Arc};
 use tokio::sync::mpsc;
 use voice_assistant::{
     core::{
         agent::{Agent, EXPRESSIVE_VOICE_SYSTEM_PROMPT},
         agent_loop::agent_loop,
-        messages::MessagesRegistry,
+        messages::MessagesRegistry, tools::{tool_registory::ToolRegistory, tools::WeatherTool},
     },
     model::events::AssistantEvent,
 };
@@ -65,8 +65,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!("\n⏳ Agent running loop...\n");
-
-        if let Err(e) = agent_loop(&mut agent, trimmed.to_string(), outbound_tx.clone(), &mut memory, &tts_tx).await {
+  let mut tool_reg = ToolRegistory::new();
+    tool_reg.register(Arc::new(WeatherTool));
+    let tool_registory_arc = Arc::new(tool_reg);
+        if let Err(e) = agent_loop(&mut agent, trimmed.to_string(), outbound_tx.clone(), &mut memory, &tts_tx,tool_registory_arc).await {
             eprintln!("Error in agent loop: {e}");
         }
 
