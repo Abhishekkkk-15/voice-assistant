@@ -22,3 +22,4 @@ pub struct SpeechSegment {
     pub emotion: Option<String>,
     pub text: String,
 }
+

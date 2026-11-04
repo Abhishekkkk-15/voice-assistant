@@ -16,7 +16,9 @@ pub struct AppConfig{
     pub stt_model:String,
     pub tts_voice:String,
     pub azure_audio_url:String,
-    pub openai_api_key:String
+    pub openai_api_key:String,
+    pub weather_api:String,
+    pub tavily_api_key:String,
 }
 
 
@@ -46,8 +48,8 @@ impl AppConfig{
             tts_voice:env::var("DEFAULT_TTS_VOICE").unwrap_or("alloy".to_string()),
             azure_audio_url:env::var("AZURE_AUDIO_SERVICE_URL").unwrap_or("alloy".to_string()),
             openai_api_key:env::var("OPENAI_API_KEY").unwrap_or("alloy".to_string()),
-
-
+            weather_api:env::var("WEATHER_API_KEY").unwrap_or("alloy".to_string()),
+            tavily_api_key:env::var("TAVILY_API_KEY").unwrap_or_default(),
         }
 
     }
@@ -57,4 +59,3 @@ impl AppConfig{
     }
 
 }
-
