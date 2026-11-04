@@ -4,7 +4,8 @@ use voice_assistant::{
     core::{
         agent::{Agent, EXPRESSIVE_VOICE_SYSTEM_PROMPT},
         agent_loop::agent_loop,
-        messages::MessagesRegistry, tools::{tool_registory::ToolRegistory, tools::WeatherTool},
+        messages::MessagesRegistry,
+        tools::{tavily::TavilySearchTool, tool_registory::ToolRegistory, tools::WeatherTool},
     },
     model::events::AssistantEvent,
 };
@@ -15,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("==================================================");
     println!("🤖 Agent Loop Test CLI");
-    println!("Type your message (e.g. 'What is the weather in Tokyo?')");
+    println!("Type your message (e.g. 'What is the weather in Tokyo?' or 'Search for latest news on Rust')");
     println!("Type 'exit' to quit.");
     println!("==================================================\n");
 
@@ -29,7 +30,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Background listener for TTS clauses
     tokio::spawn(async move {
         while let Some(clause) = tts_rx.recv().await {
-            println!("🔊 [TTS Clause]: {clause}");
+            // Can be monitored if needed
+            let _ = clause;
         }
     });
 
@@ -45,6 +47,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
+
+    let mut tool_reg = ToolRegistory::new();
+    tool_reg.register(Arc::new(WeatherTool));
+    tool_reg.register(Arc::new(TavilySearchTool));
+    let tool_registory_arc = Arc::new(tool_reg);
 
     let stdin = io::stdin();
     loop {
@@ -65,10 +72,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!("\n⏳ Agent running loop...\n");
-  let mut tool_reg = ToolRegistory::new();
-    tool_reg.register(Arc::new(WeatherTool));
-    let tool_registory_arc = Arc::new(tool_reg);
-        if let Err(e) = agent_loop(&mut agent, trimmed.to_string(), outbound_tx.clone(), &mut memory, &tts_tx,tool_registory_arc).await {
+        let reg_clone = Arc::clone(&tool_registory_arc);
+        if let Err(e) = agent_loop(&mut agent, trimmed.to_string(), outbound_tx.clone(), &mut memory, &tts_tx, reg_clone).await {
             eprintln!("Error in agent loop: {e}");
         }
 
