@@ -1,19 +1,37 @@
 use actix_ws::{AggregatedMessage, AggregatedMessageStream, Session};
 
-use crate::{core::{agent::{Agent, EXPRESSIVE_VOICE_SYSTEM_PROMPT}, pipeline::run_conversation_session}, model::{events::{AssistantEvent, UserEvent}, message::{ClientMessage, WsQuery}}};
+use crate::{
+    core::{
+        agent::{Agent, EXPRESSIVE_VOICE_SYSTEM_PROMPT},
+        pipeline::run_conversation_session,
+    },
+    model::{
+        events::{AssistantEvent, UserEvent},
+        message::{ClientMessage, WsQuery},
+    },
+};
 
 pub async fn ws_transport(
     mut session: Session,
     mut msg_stream: AggregatedMessageStream,
-    query: WsQuery, 
-){
+    query: WsQuery,
+) {
     let (inbound_tx, inbound_rx) = tokio::sync::mpsc::channel::<UserEvent>(32);
     let (outbound_tx, mut outbound_rx) = tokio::sync::mpsc::channel::<AssistantEvent>(32);
 
     let agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
-    let current_voice = query.voice.clone().unwrap_or_else(|| "en-US-JennyMultilingualNeural".to_string());
-    let user_id = query.user_id.clone().unwrap_or_else(|| "user_1".to_string());
-    println!("👤 WebSocket session initialized for user [{}] with voice [{}]", user_id, current_voice);
+    let current_voice = query
+        .voice
+        .clone()
+        .unwrap_or_else(|| "en-US-JennyMultilingualNeural".to_string());
+    let user_id = query
+        .user_id
+        .clone()
+        .unwrap_or_else(|| "user_1".to_string());
+    println!(
+        "👤 WebSocket session initialized for user [{}] with voice [{}]",
+        user_id, current_voice
+    );
 
     tokio::spawn(async move {
         run_conversation_session(inbound_rx, outbound_tx, agent, current_voice).await;

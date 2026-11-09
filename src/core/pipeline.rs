@@ -6,6 +6,7 @@ use crate::core::messages::MessagesRegistry;
 use crate::core::tools::tavily::TavilySearchTool;
 use crate::core::tools::tool_registory::ToolRegistory;
 use crate::core::tools::tools::WeatherTool;
+use crate::core::vad::{VadDetector, VadEvent};
 use crate::model::events::{AssistantEvent, UserEvent};
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
@@ -16,7 +17,7 @@ async fn process_ai_turn(
     outbound_tx: &mpsc::Sender<AssistantEvent>,
     current_voice: &str,
     memory: &mut MessagesRegistry,
-    tool_registory: Arc<ToolRegistory>
+    tool_registory: Arc<ToolRegistory>,
 ) {
     let (tts_tx, mut tts_rx) = tokio::sync::mpsc::channel::<String>(32);
 
@@ -25,7 +26,15 @@ async fn process_ai_turn(
     let outbound_tx_clone = outbound_tx.clone();
 
     let agent_task = async {
-        let _ = agent_loop(agent, text, outbound_tx.clone(), memory, &tts_tx, tool_registory).await;
+        let _ = agent_loop(
+            agent,
+            text,
+            outbound_tx.clone(),
+            memory,
+            &tts_tx,
+            tool_registory,
+        )
+        .await;
         // Closing this channel so tts_rx loop can finish after synthesizing all sentences
         drop(tts_tx);
     };
@@ -77,6 +86,7 @@ pub async fn run_conversation_session(
     tool_reg.register(Arc::new(WeatherTool));
     tool_reg.register(Arc::new(TavilySearchTool));
     let tool_registory_arc = Arc::new(tool_reg);
+    let mut vad = VadDetector::new().expect("Failed to initialize VAD");
     while let Some(event) = inbound_rx.recv().await {
         match event {
             UserEvent::ChangeVoice(v) => {
@@ -84,7 +94,15 @@ pub async fn run_conversation_session(
             }
             UserEvent::TextMessage(text) => {
                 let reg_clone_1 = Arc::clone(&tool_registory_arc);
-                process_ai_turn(text, &mut agent, &outbound_tx, &current_voice, &mut memory, reg_clone_1).await;
+                process_ai_turn(
+                    text,
+                    &mut agent,
+                    &outbound_tx,
+                    &current_voice,
+                    &mut memory,
+                    reg_clone_1,
+                )
+                .await;
             }
             UserEvent::AudioChunk(bin) => {
                 if bin.starts_with(b"RIFF") {
@@ -100,7 +118,7 @@ pub async fn run_conversation_session(
                                 &outbound_tx,
                                 &current_voice,
                                 &mut memory,
-                                reg_clone_2
+                                reg_clone_2,
                             )
                             .await;
                         }
@@ -109,6 +127,39 @@ pub async fn run_conversation_session(
                             let _ = outbound_tx
                                 .send(AssistantEvent::Error(err.to_string()))
                                 .await;
+                        }
+                    }
+                } else {
+                    let events = vad.push_pcm16(&bin).unwrap_or_default();
+                    for event in events {
+                        match event {
+                            VadEvent::SpeechStarted => {
+                                println!("🗣️ User started speaking (Barge-in)");
+                                let _ = outbound_tx
+                                    .send(AssistantEvent::AudioEnd {
+                                        status: "barge_in".to_string(),
+                                    })
+                                    .await;
+                            }
+                            VadEvent::SpeechEnded(wav_bytes) => {
+                                match agent.transcribe(wav_bytes).await {
+                                    Ok(text) if !text.trim().is_empty() => {
+                                        let _ = outbound_tx
+                                            .send(AssistantEvent::TextTranscription(text.clone()))
+                                            .await;
+                                        process_ai_turn(
+                                            text,
+                                            &mut agent,
+                                            &outbound_tx,
+                                            &current_voice,
+                                            &mut memory,
+                                            Arc::clone(&tool_registory_arc),
+                                        )
+                                        .await;
+                                    }
+                                    _ => {}
+                                }
+                            }
                         }
                     }
                 }

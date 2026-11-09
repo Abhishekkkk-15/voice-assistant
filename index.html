@@ -798,6 +798,111 @@
             }
         }
 
+        /* Mode Toggle Pill (Push-to-Talk vs Continuous VAD) */
+        .mode-toggle-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 12px;
+            pointer-events: auto;
+        }
+
+        .mode-toggle {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(18, 18, 24, 0.72);
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 3px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            gap: 2px;
+        }
+
+        .mode-toggle-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            padding: 6px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+
+        .mode-toggle-btn:hover {
+            color: #f1f5f9;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .mode-toggle-btn.active {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+
+        .mode-toggle-btn.active.vad {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(96, 165, 250, 0.35);
+            color: #93c5fa;
+            box-shadow: 0 0 14px rgba(59, 130, 246, 0.25);
+        }
+
+        .mode-toggle-btn .pulse-indicator {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #64748b;
+            transition: all 0.2s;
+        }
+
+        .mode-toggle-btn.active .pulse-indicator {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .mode-toggle-btn.active.vad .pulse-indicator {
+            background: #60a5fa;
+            box-shadow: 0 0 8px #60a5fa;
+            animation: vadPulse 1.8s infinite;
+        }
+
+        @keyframes vadPulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.35);
+                opacity: 0.6;
+            }
+        }
+
+        .mic-btn.vad-active {
+            background: #2563eb !important;
+            color: white !important;
+            box-shadow: 0 0 22px rgba(37, 99, 235, 0.7) !important;
+            animation: pulse-vad 1.6s infinite alternate !important;
+        }
+
+        @keyframes pulse-vad {
+            0% {
+                box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+            }
+            100% {
+                box-shadow: 0 0 25px rgba(59, 130, 246, 0.85), 0 0 6px #60a5fa;
+            }
+        }
+
         /* Bottom Floating Input Bar */
         footer {
             position: relative;
@@ -1353,6 +1458,18 @@
     </div>
 
     <footer>
+        <div class="mode-toggle-wrapper">
+            <div class="mode-toggle">
+                <button id="modePttBtn" class="mode-toggle-btn active" onclick="setVoiceMode('ptt')" title="Push to Talk mode (Hold/Click to speak)">
+                    <span class="pulse-indicator"></span>
+                    <span>✋ Push to Talk</span>
+                </button>
+                <button id="modeVadBtn" class="mode-toggle-btn" onclick="setVoiceMode('vad')" title="Continuous hands-free speech detection (Silero VAD)">
+                    <span class="pulse-indicator"></span>
+                    <span>🎙️ Continuous VAD</span>
+                </button>
+            </div>
+        </div>
         <div class="input-bar">
             <input type="text" id="promptInput" placeholder="Send a message to speak..." 
                    disabled onkeydown="if(event.key === 'Enter') handleSend()">
@@ -2627,7 +2744,11 @@
                     try {
                         const parsed = JSON.parse(event.data);
                         clearTimeout(window._sttTimeout);
-                        if (parsed.status === 'received') {
+                        if (parsed.status === 'barge_in') {
+                            console.log('🗣️ Barge-in detected: interrupting audio queue');
+                            resetAudioQueue();
+                            subtitle.innerText = 'Listening...';
+                        } else if (parsed.status === 'received') {
                             subtitle.innerText = 'Processing with assistant...';
                         } else if (parsed.transcription) {
                             subtitle.innerText = `You: “${parsed.transcription}”`;
@@ -2819,6 +2940,77 @@
 
     let micSilenceTimer = null;
     let micMaxDurationTimer = null;
+    let voiceMode = 'ptt'; // 'ptt' | 'vad'
+
+    // Downsamples raw Float32Array channel buffer to 16kHz Int16Array PCM
+    function downsampleTo16kInt16(inputBuffer, sourceSampleRate) {
+        if (sourceSampleRate === 16000) {
+            const pcm16 = new Int16Array(inputBuffer.length);
+            for (let i = 0; i < inputBuffer.length; i++) {
+                const s = Math.max(-1, Math.min(1, inputBuffer[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return pcm16;
+        }
+
+        const ratio = sourceSampleRate / 16000;
+        const newLength = Math.round(inputBuffer.length / ratio);
+        const pcm16 = new Int16Array(newLength);
+        for (let i = 0; i < newLength; i++) {
+            const srcPos = i * ratio;
+            const srcIdx = Math.floor(srcPos);
+            const nextIdx = Math.min(srcIdx + 1, inputBuffer.length - 1);
+            const frac = srcPos - srcIdx;
+            const s = (1 - frac) * inputBuffer[srcIdx] + frac * inputBuffer[nextIdx];
+            const clamped = Math.max(-1, Math.min(1, s));
+            pcm16[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+        }
+        return pcm16;
+    }
+
+    async function setVoiceMode(mode) {
+        if (mode === voiceMode) return;
+        voiceMode = mode;
+
+        const pttBtn = document.getElementById('modePttBtn');
+        const vadBtn = document.getElementById('modeVadBtn');
+
+        if (mode === 'vad') {
+            if (pttBtn) pttBtn.classList.remove('active');
+            if (vadBtn) {
+                vadBtn.classList.add('active');
+                vadBtn.classList.add('vad');
+            }
+            if (!isRecordingMic) {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    await startMicrophone();
+                } else {
+                    subtitle.innerText = 'Continuous VAD selected. Connect and click mic to start.';
+                }
+            } else {
+                clearTimeout(micSilenceTimer);
+                clearTimeout(micMaxDurationTimer);
+                recordedAudioBuffers = [];
+                if (micBtn) {
+                    micBtn.classList.remove('recording');
+                    micBtn.classList.add('vad-active');
+                    micBtn.title = 'Continuous VAD active (Click to mute/pause)';
+                }
+                subtitle.innerText = 'Continuous listening active. Speak anytime — assistant responds automatically!';
+            }
+        } else {
+            if (vadBtn) {
+                vadBtn.classList.remove('active');
+                vadBtn.classList.remove('vad');
+            }
+            if (pttBtn) pttBtn.classList.add('active');
+            if (isRecordingMic) {
+                stopMicrophone();
+            }
+            subtitle.innerText = 'Push to Talk selected. Click mic or type below.';
+        }
+    }
+    window.setVoiceMode = setVoiceMode;
 
     async function toggleMicrophone() {
         if (isRecordingMic) {
@@ -2857,9 +3049,19 @@
             micProcessorNode.onaudioprocess = (e) => {
                 if (!isRecordingMic) return;
                 const channelData = e.inputBuffer.getChannelData(0);
+
+                if (voiceMode === 'vad') {
+                    // Continuous hands-free VAD: stream raw 16kHz PCM16 chunks over WebSocket
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const pcm16 = downsampleTo16kInt16(channelData, audioCtx.sampleRate);
+                        ws.send(pcm16.buffer);
+                    }
+                    return;
+                }
+
                 recordedAudioBuffers.push(new Float32Array(channelData));
 
-                // RMS calculation for Voice Activity / Silence Detection
+                // RMS calculation for Voice Activity / Silence Detection in PTT mode
                 let sum = 0;
                 for (let i = 0; i < channelData.length; i++) {
                     sum += channelData[i] * channelData[i];
@@ -2888,17 +3090,29 @@
             micZeroGain.connect(audioCtx.destination);
 
             isRecordingMic = true;
-            if (micBtn) micBtn.classList.add('recording');
-            subtitle.innerText = 'Listening... Speak now (auto-sends on pause or click mic)';
-            subtitle.classList.remove('muted');
-
-            // Maximum recording safeguard: 20s
-            clearTimeout(micMaxDurationTimer);
-            micMaxDurationTimer = setTimeout(() => {
-                if (isRecordingMic) {
-                    stopMicrophone();
+            if (voiceMode === 'vad') {
+                if (micBtn) {
+                    micBtn.classList.remove('recording');
+                    micBtn.classList.add('vad-active');
+                    micBtn.title = 'Continuous VAD active (Click to mute/pause)';
                 }
-            }, 20000);
+                subtitle.innerText = 'Continuous listening active. Speak anytime — assistant responds automatically!';
+                clearTimeout(micMaxDurationTimer);
+            } else {
+                if (micBtn) {
+                    micBtn.classList.remove('vad-active');
+                    micBtn.classList.add('recording');
+                    micBtn.title = 'Recording (Click to stop)';
+                }
+                subtitle.innerText = 'Listening... Speak now (auto-sends on pause or click mic)';
+                clearTimeout(micMaxDurationTimer);
+                micMaxDurationTimer = setTimeout(() => {
+                    if (isRecordingMic) {
+                        stopMicrophone();
+                    }
+                }, 20000);
+            }
+            subtitle.classList.remove('muted');
 
         } catch (err) {
             console.error('Microphone access error:', err);
@@ -2913,7 +3127,11 @@
         clearTimeout(micSilenceTimer);
         clearTimeout(micMaxDurationTimer);
 
-        if (micBtn) micBtn.classList.remove('recording');
+        if (micBtn) {
+            micBtn.classList.remove('recording');
+            micBtn.classList.remove('vad-active');
+            micBtn.title = 'Speak into microphone';
+        }
 
         // Disconnect mic nodes
         if (micSourceNode) {
@@ -2931,6 +3149,12 @@
         if (micMediaStream) {
             micMediaStream.getTracks().forEach(track => track.stop());
             micMediaStream = null;
+        }
+
+        // In continuous VAD mode, audio is streamed directly chunk-by-chunk over WS.
+        if (voiceMode === 'vad') {
+            subtitle.innerText = 'Continuous listening paused. Click mic to resume.';
+            return;
         }
 
         if (recordedAudioBuffers.length === 0) {
