@@ -38,7 +38,7 @@ impl From<PendingToolCall> for ChatCompletionMessageToolCalls {
 }
 
 pub async fn agent_loop(
-    agent: &mut Agent,
+    agent: &Agent,
     user_input: String,
     outbound_tx: mpsc::Sender<AssistantEvent>,
     memory: &mut MessagesRegistry,
