@@ -142,7 +142,7 @@ impl Agent {
         }
     }
     pub async fn generation_stream_for_agent(
-        &mut self,
+        &self,
         messages: &[ChatCompletionRequestMessage],
         tools_registory:&ToolRegistory
     ) -> Result<
