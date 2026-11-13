@@ -8,6 +8,8 @@ pub const SPEECH_THRESHOLD: f32 = 0.5; // Probability >= 0.5 is speech
 pub const PRE_SPEECH_CHUNKS: usize = 10; // ~320ms saved before speech to avoid clipping
 pub const SILENCE_LIMIT_CHUNKS: usize = 20; // ~640ms pause before sentence finishes
 
+pub const SPEECH_CONFIRM_CHUNKS: usize = 3;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VadState {
     Silence,
@@ -28,6 +30,10 @@ pub struct VadDetector {
     state: VadState,
     consecutive_silence: usize,
     silence_limit: usize,
+
+    // tracks how many speech chunks in a row have been detected
+    consecutive_speech: usize,
+    speech_confirm_limit: usize,
 
     // Circular pre-speech memory (~320ms)
     pre_speech_buffer: VecDeque<Vec<f32>>,
@@ -58,6 +64,8 @@ impl VadDetector {
             pre_speech_limit: PRE_SPEECH_CHUNKS,
             active_speech_samples: Vec::new(),
             sample_buffer: Vec::new(),
+            consecutive_speech: 0,
+            speech_confirm_limit: SPEECH_CONFIRM_CHUNKS,
         })
     }
 
@@ -91,24 +99,27 @@ impl VadDetector {
 
         match self.state {
             VadState::Silence => {
+                if self.pre_speech_buffer.len() >= self.pre_speech_limit {
+                    self.pre_speech_buffer.pop_front();
+                }
+                self.pre_speech_buffer.push_back(chunk.to_vec());
                 if is_speech {
-                    self.state = VadState::Speaking;
-                    self.consecutive_silence = 0;
+                    self.consecutive_speech += 1;
+                    if self.consecutive_speech >= self.speech_confirm_limit {
+                        self.state = VadState::Speaking;
+                        self.consecutive_speech = 0;
+                        self.consecutive_silence = 0;
 
-                    // Drain the rolling 320ms pre-speech buffer so first phoneme is preserved
-                    self.active_speech_samples.clear();
-                    while let Some(pre) = self.pre_speech_buffer.pop_front() {
-                        self.active_speech_samples.extend(pre);
+                        // Drain all saved pre-speech audio (including the initial syllables!)
+                        self.active_speech_samples.clear();
+                        while let Some(pre) = self.pre_speech_buffer.pop_front() {
+                            self.active_speech_samples.extend(pre);
+                        }
+
+                        return Ok(Some(VadEvent::SpeechStarted));
                     }
-                    self.active_speech_samples.extend_from_slice(chunk);
-
-                    return Ok(Some(VadEvent::SpeechStarted));
                 } else {
-                    // Keep only latest 10 chunks in pre-speech ring buffer
-                    if self.pre_speech_buffer.len() >= self.pre_speech_limit {
-                        self.pre_speech_buffer.pop_front();
-                    }
-                    self.pre_speech_buffer.push_back(chunk.to_vec());
+                    self.consecutive_speech = 0;
                 }
             }
 
@@ -142,6 +153,7 @@ impl VadDetector {
         self.vad.reset();
         self.state = VadState::Silence;
         self.consecutive_silence = 0;
+        self.consecutive_speech = 0;
         self.pre_speech_buffer.clear();
         self.active_speech_samples.clear();
         self.sample_buffer.clear();
