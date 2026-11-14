@@ -2,6 +2,8 @@ mod utlis;
 mod model;
 mod core;
 mod transports;
+mod providers;
+
 use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, get, web};
 
 use crate::{model::message::WsQuery, transports::ws::ws_transport};
