@@ -1,1 +1,1 @@
-mod deepgram;
+pub mod deepgram;

@@ -4,17 +4,23 @@ use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
 use async_openai::types::chat::{
-    ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionTool, ChatCompletionTools, CreateChatCompletionRequestArgs, CreateChatCompletionResponse, CreateChatCompletionStreamResponse, FunctionObjectArgs
+    ChatCompletionRequestAssistantMessage, ChatCompletionRequestMessage,
+    ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionTool,
+    ChatCompletionTools, CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
+    CreateChatCompletionStreamResponse, FunctionObjectArgs,
 };
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::core::audio::Audio;
 use crate::core::tools::tool_registory::ToolRegistory;
+use crate::model::stt::STTProvider::Deepgram;
+use crate::model::stt::{STTEvents, STTProvider, StreamingSTTProvider};
+use crate::providers::stt::deepgram::DeepgramSTT;
 use crate::utlis::config::AppConfig;
 use async_openai::types::completions::{CreateCompletionRequestArgs, CreateCompletionResponse};
 use bytes;
 use futures_util::Stream;
 use serde_json::json;
-
 pub const EXPRESSIVE_VOICE_SYSTEM_PROMPT: &str = r#"You are an expressive, friendly, and concise conversational voice assistant. Your responses are read directly by a Text-to-Speech (TTS) engine.
 
 ### Core Rules for Spoken Audio:
@@ -55,11 +61,30 @@ pub struct Agent {
     /// The sliding window memory of the conversation
     pub history: Vec<ChatCompletionRequestMessage>,
     pub tools: Option<Vec<i128>>,
+    pub stt_provider: Box<dyn StreamingSTTProvider>,
+}
+
+fn get_stt_provider(sttProvider: STTProvider) -> Box<dyn StreamingSTTProvider> {
+        let config = AppConfig::global();
+
+    match sttProvider {
+        STTProvider::Deepgram => {
+            let dp = DeepgramSTT {
+                api_key: config.deepgram_key.to_string(),
+            };
+            Box::new(dp)
+        }
+    }
 }
 
 impl Agent {
-    pub fn new(system_prompt: &str) -> Self {
+    pub fn new(system_prompt: &str, sttProvider: Option<STTProvider>) -> Self {
         let config = AppConfig::global();
+        let stt_provider = if sttProvider.is_none() {
+            get_stt_provider(STTProvider::default())
+        } else {
+            get_stt_provider(sttProvider.unwrap())
+        };
         let mut agent = Agent {
             client: Client::with_config(
                 OpenAIConfig::new()
@@ -70,6 +95,7 @@ impl Agent {
             history: Vec::new(),
             audio_client: Audio::new(),
             tools: None,
+            stt_provider,
         };
 
         agent.setup_history();
@@ -91,6 +117,13 @@ impl Agent {
 
     pub async fn transcribe(&self, audio_data: Vec<u8>) -> Result<String, reqwest::Error> {
         self.audio_client.stt(audio_data).await
+    }
+
+    pub async fn transcribe_stream(
+        &self,
+    ) -> Result<(Sender<Vec<u8>>, Receiver<STTEvents>), Box<dyn std::error::Error + Send + Sync>>
+    {
+        self.stt_provider.create_stream().await
     }
     // one shot completion
     pub async fn generation(
@@ -163,7 +196,7 @@ impl Agent {
     pub async fn generation_stream_for_agent(
         &self,
         messages: &[ChatCompletionRequestMessage],
-        tools_registory:&ToolRegistory
+        tools_registory: &ToolRegistory,
     ) -> Result<
         Pin<Box<dyn Stream<Item = Result<CreateChatCompletionStreamResponse, OpenAIError>> + Send>>,
         OpenAIError,
@@ -174,7 +207,13 @@ impl Agent {
                 .model(&config.completion_model)
                 .messages(messages)
                 .stream(true)
-                .tools(tools_registory.to_openai_tools().into_iter().map(ChatCompletionTools::Function).collect::<Vec<_>>())
+                .tools(
+                    tools_registory
+                        .to_openai_tools()
+                        .into_iter()
+                        .map(ChatCompletionTools::Function)
+                        .collect::<Vec<_>>(),
+                )
                 .build()?;
 
             self.client.chat().create_stream(request).await

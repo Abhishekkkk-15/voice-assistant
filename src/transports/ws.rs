@@ -19,7 +19,7 @@ pub async fn ws_transport(
     let (inbound_tx, inbound_rx) = tokio::sync::mpsc::channel::<UserEvent>(128);
     let (outbound_tx, mut outbound_rx) = tokio::sync::mpsc::channel::<AssistantEvent>(128);
 
-    let agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
+    let agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT, None);
     let current_voice = query
         .voice
         .clone()
@@ -90,13 +90,19 @@ pub async fn ws_transport(
                     if !parsed.content.trim().is_empty() {
                         let sender = parsed.user_id.as_deref().unwrap_or(&user_id);
                         println!("💬 [{}] says: {}", sender, parsed.content);
-                        let _ = inbound_tx.send(UserEvent::TextMessage(parsed.content)).await;
+                        let _ = inbound_tx
+                            .send(UserEvent::TextMessage(parsed.content))
+                            .await;
                     }
                 }
             }
             AggregatedMessage::Binary(bin) => {
                 // If the receiver is dropped or lagging, don't hang the loop
-                if inbound_tx.send(UserEvent::AudioChunk(bin.to_vec())).await.is_err() {
+                if inbound_tx
+                    .send(UserEvent::AudioChunk(bin.to_vec()))
+                    .await
+                    .is_err()
+                {
                     break;
                 }
             }

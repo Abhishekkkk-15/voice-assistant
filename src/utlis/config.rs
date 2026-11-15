@@ -19,6 +19,7 @@ pub struct AppConfig{
     pub openai_api_key:String,
     pub weather_api:String,
     pub tavily_api_key:String,
+    pub deepgram_key:String
 }
 
 
@@ -50,6 +51,7 @@ impl AppConfig{
             openai_api_key:env::var("OPENAI_API_KEY").unwrap_or("alloy".to_string()),
             weather_api:env::var("WEATHER_API_KEY").unwrap_or("alloy".to_string()),
             tavily_api_key:env::var("TAVILY_API_KEY").unwrap_or_default(),
+            deepgram_key:env::var("DEEPGRAM_KEY").unwrap_or_default()
         }
 
     }

@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Type 'exit' to quit.");
     println!("==================================================\n");
 
-    let mut agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
+    let mut agent = Agent::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT, None);
     let mut memory = MessagesRegistry::new(EXPRESSIVE_VOICE_SYSTEM_PROMPT);
 
     // Channel for events emitted by agent loop

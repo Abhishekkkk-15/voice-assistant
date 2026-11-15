@@ -1,2 +1,2 @@
-mod stt;
-mod tts;
+pub mod stt;
+pub mod tts;

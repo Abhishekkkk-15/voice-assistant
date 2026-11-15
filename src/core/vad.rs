@@ -6,9 +6,9 @@ pub const SAMPLE_RATE: u32 = 16_000;
 pub const CHUNK_SIZE: usize = 512; // 32ms at 16kHz
 pub const SPEECH_THRESHOLD: f32 = 0.6; // Probability >= 0.5 is speech
 pub const PRE_SPEECH_CHUNKS: usize = 10; // ~320ms saved before speech to avoid clipping
-pub const SILENCE_LIMIT_CHUNKS: usize = 20; // ~640ms pause before sentence finishes
+pub const SILENCE_LIMIT_CHUNKS: usize = 30; // ~640ms pause before sentence finishes
 
-pub const SPEECH_CONFIRM_CHUNKS: usize = 3;
+pub const SPEECH_CONFIRM_CHUNKS: usize = 4;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VadState {

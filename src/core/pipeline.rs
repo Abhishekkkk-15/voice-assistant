@@ -9,7 +9,7 @@ use crate::core::tools::tools::WeatherTool;
 use crate::core::vad::{VadDetector, VadEvent};
 use crate::model::events::{AssistantEvent, UserEvent};
 use futures_util::StreamExt;
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 
 async fn process_ai_turn(
     text: String,
@@ -91,6 +91,51 @@ pub async fn run_conversation_session(
     let agent_arc = Arc::new(agent);
     let mut vad = VadDetector::new().expect("Failed to initialize VAD");
     let mut current_ai_turn: Option<tokio::task::JoinHandle<()>> = None;
+    let current_transcript: Arc<tokio::sync::Mutex<String>> =
+        Arc::new(tokio::sync::Mutex::new(String::new()));
+
+    let (audio_tx, event_rx) = match agent_arc.transcribe_stream().await {
+        Ok(d) => d,
+        Err(err) => panic!("Error in pipeline {:?}", err),
+    };
+    let arc_event_rx = Arc::new(Mutex::new(event_rx));
+    let cloned = Arc::clone(&arc_event_rx);
+
+    let cloned_current_transcript: Arc<Mutex<String>> = Arc::clone(&current_transcript);
+
+    // handling stt event sent by provider and appending it to transcipt
+
+    let _ = tokio::spawn(async move {
+        loop {
+            let event = {
+                let mut event = cloned.lock().await;
+                event.recv().await
+            };
+
+            let Some(event) = event else {
+                break;
+            };
+
+            let mut buffer = cloned_current_transcript.lock().await;
+
+            match event {
+                crate::model::stt::STTEvents::Interim(str) => {
+                    let with_spacing = format!(" {}", &str);
+                    buffer.push_str(&with_spacing);
+                    println!("Inter {str}");
+                }
+                crate::model::stt::STTEvents::Final(str) => {
+                    let with_spacing = format!(" {}", &str);
+                    buffer.push_str(&with_spacing);
+                    println!("Final {str}");
+                }
+                crate::model::stt::STTEvents::Error(err) => {
+                    // current_transcript_gurad.push_str(&err``);
+                    println!("err {}", err);
+                }
+            }
+        }
+    });
 
     while let Some(event) = inbound_rx.recv().await {
         match event {
@@ -121,6 +166,8 @@ pub async fn run_conversation_session(
                 }));
             }
             UserEvent::AudioChunk(bin) => {
+                // if its an direct wav file then directly send it to transcribe
+
                 if bin.starts_with(b"RIFF") {
                     if let Some(handle) = current_ai_turn.take() {
                         handle.abort();
@@ -157,15 +204,23 @@ pub async fn run_conversation_session(
                         }
                     }));
                 } else {
+                    let _ = audio_tx.send(bin.clone()).await;
+
                     let events = vad.push_pcm16(&bin).unwrap_or_default();
+                    // let current_transcript_vad_clone = Arc::clone(&current_transcript);
                     for event in events {
                         match event {
                             VadEvent::SpeechStarted => {
                                 println!("🗣️ User started speaking (Barge-in)");
                                 if let Some(handle) = current_ai_turn.take() {
-                                    println!("🛑 Aborting current AI generation/TTS turn due to barge-in");
+                                    println!(
+                                        "🛑 Aborting current AI generation/TTS turn due to barge-in"
+                                    );
                                     handle.abort();
                                 }
+
+                                // current_transcript.lock().await.clear();
+
                                 let _ = outbound_tx
                                     .send(AssistantEvent::AudioEnd {
                                         status: "barge_in".to_string(),
@@ -173,7 +228,9 @@ pub async fn run_conversation_session(
                                     .await;
                             }
                             VadEvent::SpeechEnded(wav_bytes) => {
-                                println!("🤫 User finished speaking (~640ms pause), transcribing...");
+                                println!(
+                                    "🤫 User finished speaking (~640ms pause), transcribing..."
+                                );
                                 if let Some(handle) = current_ai_turn.take() {
                                     handle.abort();
                                 }
@@ -183,16 +240,19 @@ pub async fn run_conversation_session(
                                 let tool_reg_cloned = Arc::clone(&tool_registory_arc);
                                 let outbound_cloned = outbound_tx.clone();
                                 let voice = current_voice.clone();
+                                let cloned2_current_transcript = Arc::clone(&current_transcript);
 
                                 current_ai_turn = Some(tokio::spawn(async move {
                                     match agent_cloned.transcribe(wav_bytes).await {
                                         Ok(text) if !text.trim().is_empty() => {
+                                            let mut t = cloned2_current_transcript.lock().await;
                                             println!("📝 Transcription: \"{text}\"");
                                             let _ = outbound_cloned
-                                                .send(AssistantEvent::TextTranscription(text.clone()))
+                                                .send(AssistantEvent::TextTranscription(t.clone()))
                                                 .await;
+                                            println!("DeepGram Transcript {}", t);
                                             process_ai_turn(
-                                                text,
+                                                t.to_string(),
                                                 agent_cloned,
                                                 outbound_cloned,
                                                 voice,
@@ -200,6 +260,7 @@ pub async fn run_conversation_session(
                                                 tool_reg_cloned,
                                             )
                                             .await;
+                                            t.clear();
                                         }
                                         Ok(_) => {
                                             println!("⚠️ Empty transcription from VAD chunk");
