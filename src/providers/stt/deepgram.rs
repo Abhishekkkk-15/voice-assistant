@@ -78,8 +78,7 @@ impl StreamingSTTProvider for DeepgramSTT {
         &self,
     ) -> Result<(Sender<Vec<u8>>, Receiver<STTEvents>), Box<dyn std::error::Error + Send + Sync>>
     {
-        let ws_url = "wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3language=en-IN&smart_format
-    =true";
+        let ws_url = "wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3&language=en-IN&smart_format=true";
         let (audio_tx, mut audio_rx) = mpsc::channel::<Vec<u8>>(64);
         let (event_tx, event_rx) = mpsc::channel::<STTEvents>(32);
         let mut request = ws_url.into_client_request()?;

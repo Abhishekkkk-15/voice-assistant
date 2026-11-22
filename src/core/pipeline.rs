@@ -248,37 +248,27 @@ pub async fn run_conversation_session(
                                 let voice = current_voice.clone();
                                 let cloned2_current_transcript = Arc::clone(&current_transcript);
 
-                                current_ai_turn = Some(tokio::spawn(async move {
-                                    match agent_cloned.transcribe(wav_bytes).await {
-                                        Ok(text) if !text.trim().is_empty() => {
-                                            let mut t = cloned2_current_transcript.lock().await;
-                                            println!("📝 Transcription: \"{text}\"");
-                                            let _ = outbound_cloned
-                                                .send(AssistantEvent::TextTranscription(t.clone()))
-                                                .await;
-                                            println!("DeepGram Transcript {}", t);
-                                            process_ai_turn(
-                                                t.to_string(),
-                                                agent_cloned,
-                                                outbound_cloned,
-                                                voice,
-                                                memory_cloned,
-                                                tool_reg_cloned,
-                                            )
-                                            .await;
-                                            t.clear();
-                                        }
-                                        Ok(_) => {
-                                            println!("⚠️ Empty transcription from VAD chunk");
-                                        }
-                                        Err(err) => {
-                                            eprintln!("❌ STT Error: {err}");
-                                            let _ = outbound_cloned
-                                                .send(AssistantEvent::Error(err.to_string()))
-                                                .await;
-                                        }
-                                    }
-                                }));
+                                let text = {
+                                    let mut t = cloned2_current_transcript.lock().await;
+                                    let result = t.trim().to_string();
+                                    t.clear();
+                                    result
+                                };
+
+                                if !text.is_empty() {
+                                    println!("📝 Deepgram Final Transcript: \"{text}\"");
+                                    current_ai_turn = Some(tokio::spawn(async move {
+                                        process_ai_turn(
+                                            text,
+                                            agent_cloned,
+                                            outbound_cloned,
+                                            voice,
+                                            memory_cloned,
+                                            tool_reg_cloned,
+                                        )
+                                        .await;
+                                    }));
+                                }
                             }
                         }
                     }
