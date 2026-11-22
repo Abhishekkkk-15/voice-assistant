@@ -19,6 +19,7 @@ async fn process_ai_turn(
     memory: Arc<tokio::sync::Mutex<MessagesRegistry>>,
     tool_registory: Arc<ToolRegistory>,
 ) {
+    println!("Process turn");
     let (tts_tx, mut tts_rx) = tokio::sync::mpsc::channel::<String>(32);
 
     let audio_client = agent.audio_client.clone();
@@ -118,7 +119,7 @@ pub async fn run_conversation_session(
 
             match event {
                 crate::model::stt::STTEvents::Interim(str) => {
-                    println!("Transcript from deepgram: {}", str);
+                    println!("INTERN Transcript from deepgram: {}", str);
 
                     let _ = outbound_tx_clone
                         .send(AssistantEvent::TextTranscription(str))
@@ -130,7 +131,7 @@ pub async fn run_conversation_session(
                     if !buffer.is_empty() {
                         buffer.push(' ');
                     };
-                    println!("Transcript from deepgram: {}", str);
+                    println!("FINAL Transcript from deepgram: {}", str);
                     buffer.push_str(&str);
                 }
                 crate::model::stt::STTEvents::Error(err) => {
@@ -216,6 +217,7 @@ pub async fn run_conversation_session(
                     for event in events {
                         match event {
                             VadEvent::SpeechStarted => {
+                                is_user_speaking = true;
                                 println!("🗣️ User started speaking (Barge-in)");
                                 cloned_current_transcript.lock().await.clear();
                                 if let Some(handle) = current_ai_turn.take() {

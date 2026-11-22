@@ -65,7 +65,7 @@ pub fn parse_deepgram_json(raw_json: &str) -> Result<DeepgramResult, serde_json:
         return Ok(DeepgramResult::Ignore);
     };
 
-    if parsed.speech_final {
+    if parsed.is_final {
         Ok(DeepgramResult::Final(transcript))
     } else {
         Ok(DeepgramResult::Interim(transcript))
