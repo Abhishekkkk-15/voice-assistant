@@ -1,8 +1,8 @@
-mod utlis;
-mod model;
 mod core;
-mod transports;
+mod model;
 mod providers;
+mod transports;
+mod utlis;
 
 use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, get, web};
 
@@ -16,7 +16,11 @@ async fn index() -> HttpResponse {
 }
 
 #[get("/ws")]
-async fn ws_handler(req: HttpRequest, stream: web::Payload, query: web::Query<WsQuery>) -> Result<HttpResponse, Error> {
+async fn ws_handler(
+    req: HttpRequest,
+    stream: web::Payload,
+    query: web::Query<WsQuery>,
+) -> Result<HttpResponse, Error> {
     let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
     // Allow up to 15MB frames and aggregate continuation frames
     let msg_stream = msg_stream
@@ -38,17 +42,13 @@ async fn main() -> std::io::Result<()> {
     let port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(8080);
+        .unwrap_or(9090);
 
     println!("Voice Assistant server running on http://0.0.0.0:{port}");
     println!("WebSocket endpoint on ws://0.0.0.0:{port}/ws");
 
-    HttpServer::new(move || {
-        App::new()
-            .service(index)
-            .service(ws_handler)
-    })
-    .bind(("0.0.0.0", port))?
-    .run()
-    .await
+    HttpServer::new(move || App::new().service(index).service(ws_handler))
+        .bind(("0.0.0.0", port))?
+        .run()
+        .await
 }

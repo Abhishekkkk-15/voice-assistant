@@ -104,7 +104,7 @@ pub async fn run_conversation_session(
     let cloned_current_transcript: Arc<Mutex<String>> = Arc::clone(&current_transcript);
 
     // handling stt event sent by provider and appending it to transcipt
-
+    let outbound_tx_clone = outbound_tx.clone();
     let _ = tokio::spawn(async move {
         loop {
             let event = {
@@ -116,18 +116,22 @@ pub async fn run_conversation_session(
                 break;
             };
 
-            let mut buffer = cloned_current_transcript.lock().await;
-
             match event {
                 crate::model::stt::STTEvents::Interim(str) => {
-                    let with_spacing = format!(" {}", &str);
-                    buffer.push_str(&with_spacing);
-                    println!("Inter {str}");
+                    println!("Transcript from deepgram: {}", str);
+
+                    let _ = outbound_tx_clone
+                        .send(AssistantEvent::TextTranscription(str))
+                        .await;
                 }
                 crate::model::stt::STTEvents::Final(str) => {
-                    let with_spacing = format!(" {}", &str);
-                    buffer.push_str(&with_spacing);
-                    println!("Final {str}");
+                    println!("Got here");
+                    let mut buffer = cloned_current_transcript.lock().await;
+                    if !buffer.is_empty() {
+                        buffer.push(' ');
+                    };
+                    println!("Transcript from deepgram: {}", str);
+                    buffer.push_str(&str);
                 }
                 crate::model::stt::STTEvents::Error(err) => {
                     // current_transcript_gurad.push_str(&err``);
@@ -136,6 +140,7 @@ pub async fn run_conversation_session(
             }
         }
     });
+    let cloned_current_transcript: Arc<Mutex<String>> = Arc::clone(&current_transcript);
 
     while let Some(event) = inbound_rx.recv().await {
         match event {
@@ -212,6 +217,7 @@ pub async fn run_conversation_session(
                         match event {
                             VadEvent::SpeechStarted => {
                                 println!("🗣️ User started speaking (Barge-in)");
+                                cloned_current_transcript.lock().await.clear();
                                 if let Some(handle) = current_ai_turn.take() {
                                     println!(
                                         "🛑 Aborting current AI generation/TTS turn due to barge-in"
